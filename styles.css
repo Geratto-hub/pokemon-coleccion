@@ -297,3 +297,6 @@ h1, h2, h3 { margin: 0; }
 /* Detalles */
 .chip { text-decoration: none; }
 .bolsillo img, .ficha img, .abanico img, .resultado img, .grande { color: transparent; }
+.abanico img:nth-child(n+4) { display: none; }
+.bolsillo .sin-img { position: absolute; inset: 0; font-size: 9px; line-height: 1.5; }
+.tabla .sin-img { width: 44px; height: 61px; font-size: 0; background: var(--papel); border-radius: 4px; }

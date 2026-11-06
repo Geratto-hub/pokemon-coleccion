@@ -67,6 +67,34 @@ function cacheSet(k, d) {
   try { localStorage.setItem(k, JSON.stringify({ t: Date.now(), d })); } catch {}
 }
 
+
+/* Imágenes con alternativas: si la versión española no existe se usa la inglesa,
+   y si tampoco existe se muestra un hueco con el nombre. */
+const enIngles = (u) => (u && u.includes("/es/") ? u.replace("/es/", "/en/") : "");
+function imgCarta(c, cal = "low", alt = "", clase = "") {
+  const u = img(c, cal);
+  const alts = [enIngles(u)].filter(Boolean).join("|");
+  return `<img ${clase ? `class="${clase}"` : ""} loading="lazy" src="${esc(u)}" data-alt="${esc(alts)}" data-nombre="${esc(c.name)}" alt="${esc(alt)}">`;
+}
+function imgLogo(s, soloImagen = false) {
+  const alts = [`${s.logo}.png`, enIngles(`${s.logo}.png`)].filter(Boolean).join("|");
+  return `<img src="${esc(s.logo)}.webp" data-alt="${esc(alts)}" data-nombre="${esc(soloImagen ? "" : s.name)}" data-logo="1" alt="${esc(s.name)}">`;
+}
+document.addEventListener("error", (ev) => {
+  const im = ev.target;
+  if (!(im instanceof HTMLImageElement) || im.dataset.alt == null) return;
+  const sig = im.dataset.alt.split("|").filter(Boolean);
+  if (sig.length) { im.dataset.alt = sig.slice(1).join("|"); im.src = sig[0]; return; }
+  if (im.closest(".abanico")) { im.remove(); return; }
+  if (im.dataset.logo) {
+    const sp = document.createElement("span"); sp.textContent = im.dataset.nombre || ""; im.replaceWith(sp); return;
+  }
+  const ph = document.createElement("div");
+  ph.className = "sin-img" + (im.classList.contains("grande") ? " grande" : "");
+  ph.textContent = im.closest(".bolsillo.falta") ? "" : (im.dataset.nombre || "Sin imagen");
+  im.replaceWith(ph);
+}, true);
+
 /* ================= datos de cartas ================= */
 async function cargarSet(id, onProgress) {
   if (E.sets[id]) return E.sets[id];
@@ -243,7 +271,7 @@ async function render(silencioso = false) {
 function fichaHTML(c) {
   const im = img(c);
   return `<button class="ficha" data-carta="${esc(c.id)}">
-    <div class="img">${im ? `<img loading="lazy" src="${esc(im)}" alt="${esc(c.name)}">` : `<div class="sin-img">${esc(c.name)}</div>`}</div>
+    <div class="img">${im ? `${imgCarta(c, "low", c.name)}` : `<div class="sin-img">${esc(c.name)}</div>`}</div>
     <div class="nom">${esc(c.name)}</div>
     <div class="meta">${esc(c.set || "")} · ${esc(c.n)}</div>
     <div class="meta">${esc(c.rar)}</div>
@@ -260,7 +288,7 @@ function tapaHTML(s, href) {
     prog = `<div class="progreso"><div class="progreso-barra"><i style="width:${pct}%"></i></div><small>${tengo} / ${s.cards.length} cartas · ${pct}%</small></div>`;
   }
   return `<a class="tapa" href="${href}">
-    <div class="etiqueta">${s.logo ? `<img src="${esc(s.logo)}.webp" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:${esc(JSON.stringify(s.name))}}))">` : `<span>${esc(s.name)}</span>`}</div>
+    <div class="etiqueta">${s.logo ? `${imgLogo(s)}` : `<span>${esc(s.name)}</span>`}</div>
     <h3>${esc(s.name)}</h3>
     <div class="datos"><span><b>${s.cards.length}</b> cartas</span><span>Set completo: <b>${eur(valor)}</b></span>${s.fecha ? `<span>${new Date(s.fecha).toLocaleDateString("es-ES", { month: "short", year: "numeric" })}</span>` : ""}</div>
     ${prog}
@@ -277,7 +305,7 @@ const opcionesRareza = (cartas, sel) =>
 async function vistaInicio() {
   const todas = E.ids.flatMap((id) => E.sets[id]?.cards || []);
   const caras = [...todas].filter((c) => precio(c)).sort((a, b) => precio(b) - precio(a));
-  const abanico = caras.slice(0, 3).filter((c) => c.img);
+  const abanico = caras.filter((c) => c.img).slice(0, 8);
   app().innerHTML = `
     <section class="portada">
       <div>
@@ -292,7 +320,7 @@ async function vistaInicio() {
           <a class="btn" href="#/buscar?orden=precio-desc">Ver las más caras</a>
         </div>
       </div>
-      <div class="abanico">${abanico.map((c) => `<img src="${esc(img(c))}" alt="${esc(c.name)}">`).join("")}</div>
+      <div class="abanico">${abanico.map((c) => `${imgCarta(c, "low", c.name, "")}`).join("")}</div>
     </section>
 
     <section class="seccion">
@@ -316,7 +344,7 @@ async function vistaSet([id], q) {
   const valor = s.cards.reduce((a, c) => a + (precio(c) || 0), 0);
   app().innerHTML = `
     <div class="album-cab">
-      <div class="logo">${s.logo ? `<img src="${esc(s.logo)}.webp" alt="">` : ""}</div>
+      <div class="logo">${s.logo ? imgLogo(s, true) : ""}</div>
       <div>
         <h1>${esc(s.name)}</h1>
         <div class="cifras">
@@ -429,7 +457,7 @@ async function vistaBuscar(_, q, silencioso) {
       <div class="resultados">
         ${trozo.map((c) => `
           <button class="resultado" data-carta="${esc(c.id)}">
-            ${c.img ? `<img loading="lazy" src="${esc(img(c))}" alt="">` : `<div class="mini"></div>`}
+            ${c.img ? imgCarta(c, "low", "") : `<div class="mini"></div>`}
             <div>
               <div class="t">${esc(c.name)}</div>
               <div class="s">${esc(c.set || "")} · Nº ${esc(c.n)} · ${esc(c.rar)}${c.ill ? ` · Ilus. ${esc(c.ill)}` : ""}</div>
@@ -469,7 +497,7 @@ async function vistaAlbum([id], q) {
 
   app().innerHTML = `
     <div class="album-cab">
-      <div class="logo">${s.logo ? `<img src="${esc(s.logo)}.webp" alt="">` : ""}</div>
+      <div class="logo">${s.logo ? imgLogo(s, true) : ""}</div>
       <div>
         <h1>${esc(s.name)}</h1>
         <div class="cifras">
@@ -502,7 +530,7 @@ function bolsilloHTML(c) {
   const n = totalCopias(c);
   const im = img(c);
   return `<div class="bolsillo ${n ? "" : "falta"}" data-carta="${esc(c.id)}" role="button" tabindex="0" aria-label="${esc(c.name)}">
-    ${im ? `<img loading="lazy" src="${esc(im)}" alt="">` : ""}
+    ${im ? imgCarta(c, "low", n ? c.name : "") : ""}
     ${n ? "" : `<div class="hueco"><span>${esc(c.n)}<em>${esc(c.name)}</em></span></div>`}
     ${n > 0 ? `<span class="cant">×${n}</span>` : ""}
     ${E.deseos.has(c.id) ? `<span class="deseo" title="En tu lista de deseos">★</span>` : ""}
@@ -533,7 +561,7 @@ function listaCartasTabla(filas, cols) {
   return `<div class="tabla-envoltura"><table class="tabla">
     <thead><tr><th></th><th>Carta</th>${cols.map((c) => `<th class="${c.num ? "num" : ""}">${c.t}</th>`).join("")}</tr></thead>
     <tbody>${filas.map((c) => `<tr class="clic" data-carta="${esc(c.id)}">
-      <td>${c.img ? `<img loading="lazy" src="${esc(img(c))}" alt="">` : ""}</td>
+      <td>${c.img ? imgCarta(c, "low", "") : ""}</td>
       <td><b>${esc(c.name)}</b><br><small>${esc(c.set || "")} · ${esc(c.n)} · ${esc(c.rar)}</small></td>
       ${cols.map((col) => `<td class="${col.num ? "num" : ""}">${col.f(c)}</td>`).join("")}
     </tr>`).join("")}</tbody></table></div>`;
@@ -615,7 +643,7 @@ function pintarModal(c) {
   const cmUrl = `https://www.cardmarket.com/es/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name)}`;
   caja.innerHTML = `
     <button class="cerrar" data-accion="cerrar" aria-label="Cerrar">✕</button>
-    <div>${c.img ? `<img class="grande" src="${esc(img(c, "high"))}" alt="${esc(c.name)}">` : `<div class="grande sin-img">${esc(c.name)}</div>`}</div>
+    <div>${c.img ? imgCarta(c, "high", c.name, "grande") : `<div class="grande sin-img">${esc(c.name)}</div>`}</div>
     <div>
       <h2>${esc(c.name)}</h2>
       <div class="sub">${esc(c.set || "")} · Nº ${esc(c.n)}</div>
