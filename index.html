@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Álbum TCG · Colección Pokémon</title>
+  <meta name="description" content="Precios y colección de cartas del JCC Pokémon: Caos Creciente, Oscuridad Absoluta y 30.º Aniversario.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='3' width='20' height='26' rx='3' fill='%23e3350d' stroke='%231d2c5e' stroke-width='2'/%3E%3Crect x='10' y='8' width='12' height='10' rx='1' fill='%23fff'/%3E%3Ccircle cx='16' cy='23' r='2.5' fill='%233b6fb6'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <header class="cabecera">
+    <div class="cabecera-in">
+      <a class="marca" href="#/">
+        <span class="emblema" aria-hidden="true"><span></span></span>
+        <span class="marca-txt">ÁLBUM<b>TCG</b></span>
+      </a>
+      <button class="menu-btn" aria-label="Abrir menú" data-accion="menu">☰</button>
+      <nav class="nav" id="nav"></nav>
+    </div>
+    <div class="franja" aria-hidden="true"></div>
+  </header>
+
+  <main id="app" class="app"><div class="cargando">Cargando…</div></main>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-fondo" data-accion="cerrar"></div>
+    <div class="modal-caja" role="dialog" aria-modal="true" id="modal-caja"></div>
+  </div>
+  <div id="aviso" class="aviso" hidden></div>
+
+  <footer class="pie">
+    <p>Datos de cartas e imágenes: <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> · Precios orientativos de Cardmarket (tendencia, en euros), actualizados a diario.</p>
+    <p>Web de aficionado sin relación con The Pokémon Company, Nintendo, Game Freak ni Creatures.</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
