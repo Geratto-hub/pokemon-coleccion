@@ -51,7 +51,7 @@ export function compactar(d) {
 }
 
 export async function getJSON(url, fetchFn = fetch) {
-  const r = await fetchFn(url);
+  const r = await fetchFn(url, { cache: "no-store" });
   if (!r.ok) throw new Error(`HTTP ${r.status} en ${url}`);
   return r.json();
 }

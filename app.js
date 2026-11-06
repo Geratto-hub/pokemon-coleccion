@@ -75,6 +75,8 @@ async function cargarSet(id, onProgress) {
     const r = await fetch(`data/${id}.json`, { cache: "no-cache" });
     if (r.ok) s = await r.json();
   } catch {}
+  // Si los datos del servidor vienen sin precios en muchas cartas, se recalculan en el navegador.
+  if (s && s.cards.filter((c) => c.p?.t == null && c.p?.th == null).length > s.cards.length * 0.2) s = null;
   if (!s) s = cacheGet(`set:${id}`, 12 * 3600e3);
   if (!s) {
     s = await construirSet(id, { onProgress });
