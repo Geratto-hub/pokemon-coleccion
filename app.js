@@ -7,8 +7,8 @@ const FUNC = `${C.supabaseUrl}/functions/v1/admin-usuarios`;
 
 const VARIANTES = { normal: "Normal", reverse: "Reverso", holo: "Holo", firstEdition: "1.ª edición" };
 const ORDEN_RAREZA = [
-  "Común", "Poco común", "Rara", "Rara Holo", "Rara doble", "Rara Ilustración", "Ultra Rara",
-  "Rara Ilustración Especial", "Hiper Rara", "Rara Mega Hiper", "Sin rareza",
+  "Común", "Poco común", "Rara", "Rara Holo", "Rara Doble", "Rara Ilustración", "Ultra Rara",
+  "Rara Ilustración Especial", "Hiper Rara", "Mega Hiper Rara", "Rara Pikachu", "Rara Futurista", "Sin rareza",
 ];
 
 const E = {
