@@ -293,3 +293,7 @@ h1, h2, h3 { margin: 0; }
 /* ---------- Aviso flotante ---------- */
 .aviso { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--azul-osc); color: #fff; padding: 12px 18px; border-radius: 10px; font-weight: 800; box-shadow: 0 4px 0 #0c1533; max-width: calc(100% - 32px); }
 .aviso.error { background: var(--rojo-osc); box-shadow: 0 4px 0 var(--rojo-prof); }
+
+/* Detalles */
+.chip { text-decoration: none; }
+.bolsillo img, .ficha img, .abanico img, .resultado img, .grande { color: transparent; }

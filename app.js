@@ -76,11 +76,17 @@ async function cargarSet(id, onProgress) {
     if (r.ok) s = await r.json();
   } catch {}
   // Si los datos del servidor vienen sin precios en muchas cartas, se recalculan en el navegador.
+  const respaldo = s;
   if (s && s.cards.filter((c) => c.p?.t == null && c.p?.th == null).length > s.cards.length * 0.2) s = null;
   if (!s) s = cacheGet(`set:${id}`, 12 * 3600e3);
   if (!s) {
-    s = await construirSet(id, { onProgress });
-    cacheSet(`set:${id}`, s);
+    try {
+      s = await construirSet(id, { onProgress });
+      cacheSet(`set:${id}`, s);
+    } catch (e) {
+      if (!respaldo) throw e;
+      s = respaldo;
+    }
   }
   s.cards.sort((a, b) => String(a.n).localeCompare(String(b.n), "es", { numeric: true }));
   for (const c of s.cards) E.cartaPorId.set(c.id, c);
