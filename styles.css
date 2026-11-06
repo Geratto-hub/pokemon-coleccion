@@ -300,3 +300,55 @@ h1, h2, h3 { margin: 0; }
 .abanico img:nth-child(n+4) { display: none; }
 .bolsillo .sin-img { position: absolute; inset: 0; font-size: 9px; line-height: 1.5; }
 .tabla .sin-img { width: 44px; height: 61px; font-size: 0; background: var(--papel); border-radius: 4px; }
+
+/* ---------- Álbum como libro ---------- */
+.libro { position: relative; display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.libro .carpeta.libro-abierto {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr; gap: 0;
+  padding: 22px; perspective: 1800px; position: relative;
+}
+.libro .carpeta.libro-abierto.doble { grid-template-columns: 1fr 1fr; }
+.libro-abierto.doble::after { /* lomo central */
+  content: ""; position: absolute; top: 14px; bottom: 14px; left: 50%; width: 34px; transform: translateX(-50%);
+  background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.28) 45%, rgba(0,0,0,.35) 50%, rgba(0,0,0,.28) 55%, rgba(0,0,0,0) 100%);
+  pointer-events: none; z-index: 3;
+}
+.libro-abierto .pagina { box-shadow: inset 0 0 0 1px rgba(0,0,0,.06), 0 3px 0 rgba(0,0,0,.25); }
+.libro-abierto.doble .pag-izq { border-radius: 8px 2px 2px 8px; background: linear-gradient(90deg, var(--papel) 85%, #e6dcc6 100%); }
+.libro-abierto.doble .pag-dcha { border-radius: 2px 8px 8px 2px; background: linear-gradient(270deg, var(--papel) 85%, #e6dcc6 100%); padding-left: 14px; padding-right: 34px; }
+.libro-abierto.doble .pag-dcha::before { left: auto; right: 10px; }
+.libro-abierto.doble .pag-dcha .num-pag { right: auto; left: 14px; }
+.pagina-fin { display: grid; place-items: center; min-height: 100%; }
+.fin-album { display: grid; place-items: center; height: 100%; min-height: 240px; }
+.fin-album .titulo-pixel { font-size: 11px; color: var(--gris); }
+
+.flecha {
+  flex: none; width: 54px; height: 54px; border-radius: 50%; cursor: pointer;
+  background: var(--blanco); color: var(--rojo); border: 4px solid var(--azul-osc); box-shadow: 0 4px 0 var(--azul-osc);
+  font-size: 34px; font-weight: 900; line-height: 1; display: grid; place-items: center; padding-bottom: 4px;
+}
+.flecha:hover:not(:disabled) { background: var(--rojo); color: var(--blanco); }
+.flecha:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--azul-osc); }
+.flecha:disabled { opacity: .3; cursor: default; }
+.libro-nav { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.libro-nav .select { font-weight: 800; }
+
+/* paso de página */
+@keyframes entraSig { from { transform: rotateY(-35deg) translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes entraAnt { from { transform: rotateY(35deg) translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.pagina.entra-sig { animation: entraSig .38s ease-out; transform-origin: left center; }
+.pagina.entra-ant { animation: entraAnt .38s ease-out; transform-origin: right center; }
+.libro-abierto.doble .pag-izq.entra-sig { animation-delay: .06s; animation-fill-mode: backwards; }
+.libro-abierto.doble .pag-dcha.entra-ant { animation-delay: .06s; animation-fill-mode: backwards; }
+@media (prefers-reduced-motion: reduce) { .pagina.entra-sig, .pagina.entra-ant { animation: none; } }
+
+@media (max-width: 899px) {
+  .libro { gap: 0; }
+  .libro .flecha { position: absolute; top: 50%; transform: translateY(-50%); z-index: 5; width: 44px; height: 44px; font-size: 28px; border-width: 3px; }
+  .libro .flecha:active:not(:disabled) { transform: translateY(-50%); }
+  .libro .flecha.izq { left: -6px; }
+  .libro .flecha.der { right: -6px; }
+  .libro .carpeta.libro-abierto { padding: 14px 18px; }
+}
+/* que el libro abierto quepa en pantalla sin desplazarse */
+.libro .carpeta.libro-abierto.doble { max-width: max(640px, calc((100vh - 110px) * 1.38)); margin: 0 auto; }

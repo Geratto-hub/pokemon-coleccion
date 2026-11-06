@@ -525,11 +525,24 @@ async function vistaAlbum([id], q) {
       <input class="input" data-filtro="q" placeholder="Buscar en este álbum…" value="${esc(q.get("q") || "")}">
       <select class="select" data-filtro="rar">${opcionesRareza(s.cards, rar)}</select>
     </div>
-    ${cartas.length ? `<div class="carpeta">${paginas.map((p, i) => `
-      <div class="pagina">
-        <div class="bolsillos">${p.map(bolsilloHTML).join("")}${"<div class='bolsillo vacio'></div>".repeat(9 - p.length)}</div>
-        <span class="num-pag">PÁG. ${i + 1}</span>
-      </div>`).join("")}</div>` : `<div class="tarjeta vacio-msg"><div class="titulo-pixel">¡Nada por aquí!</div>No hay cartas con este filtro.</div>`}`;
+    ${cartas.length ? `
+    <div class="libro" data-libro="${esc(id)}">
+      <button class="flecha izq" data-pasar="-1" aria-label="Página anterior">‹</button>
+      <div class="carpeta libro-abierto">${paginas.map((p, i) => `
+        <div class="pagina ${i % 2 ? "pag-dcha" : "pag-izq"}" data-pag-libro="${i}" hidden>
+          <div class="bolsillos">${p.map(bolsilloHTML).join("")}${"<div class='bolsillo vacio'></div>".repeat(9 - p.length)}</div>
+          <span class="num-pag">PÁG. ${i + 1}</span>
+        </div>`).join("")}
+        <div class="pagina pag-dcha pagina-fin" data-pag-libro="fin" hidden><div class="fin-album"><span class="titulo-pixel">FIN DEL ÁLBUM</span></div></div>
+      </div>
+      <button class="flecha der" data-pasar="1" aria-label="Página siguiente">›</button>
+    </div>
+    <div class="libro-nav">
+      <button class="btn peq" data-pasar="inicio" aria-label="Primera página">« Inicio</button>
+      <select class="select" data-ir-pagina aria-label="Ir a página"></select>
+      <button class="btn peq" data-pasar="fin" aria-label="Última página">Final »</button>
+    </div>` : `<div class="tarjeta vacio-msg"><div class="titulo-pixel">¡Nada por aquí!</div>No hay cartas con este filtro.</div>`}`;
+  iniciarLibro(`${id}|${filtro}|${rar}|${txt}`, paginas.length);
 }
 
 function bolsilloHTML(c) {
@@ -625,6 +638,69 @@ async function vistaRepetidas() {
       ]) : `<div class="vacio-msg"><div class="titulo-pixel">Sin repetidas</div>Cuando tengas más de una copia de una carta aparecerá aquí.</div>`}
     </div>`;
 }
+
+
+/* ================= libro (álbum página a página) ================= */
+const porVista = () => (innerWidth >= 900 ? 2 : 1);
+function iniciarLibro(clave, total) {
+  if (!total) return;
+  const L = E.vista.libro;
+  if (!L || L.clave !== clave) E.vista.libro = { clave, idx: 0, total };
+  else L.total = total;
+  mostrarLibro();
+}
+function mostrarLibro(dir = 0) {
+  const L = E.vista.libro;
+  const cont = $(".libro-abierto");
+  if (!L || !cont) return;
+  const n = porVista();
+  const max = Math.max(0, Math.floor((L.total - 1) / n) * n);
+  L.idx = Math.min(Math.max(0, Math.floor(L.idx / n) * n), max);
+  cont.classList.toggle("doble", n === 2);
+  cont.querySelectorAll("[data-pag-libro]").forEach((p) => {
+    const i = p.dataset.pagLibro === "fin" ? L.total : +p.dataset.pagLibro;
+    const visible = i >= L.idx && i < L.idx + n && (p.dataset.pagLibro !== "fin" || (n === 2 && L.total % 2 === 1));
+    p.hidden = !visible;
+    p.classList.remove("entra-sig", "entra-ant");
+    if (visible && dir) { void p.offsetWidth; p.classList.add(dir > 0 ? "entra-sig" : "entra-ant"); }
+  });
+  $('.flecha.izq').disabled = L.idx === 0;
+  $('.flecha.der').disabled = L.idx >= max;
+  const sel = $("[data-ir-pagina]");
+  if (sel) {
+    const ops = [];
+    for (let i = 0; i <= max; i += n) {
+      const fin = Math.min(i + n, L.total);
+      ops.push(`<option value="${i}" ${i === L.idx ? "selected" : ""}>${n === 2 && fin - i === 2 ? `Páginas ${i + 1}–${fin}` : `Página ${i + 1}`} de ${L.total}</option>`);
+    }
+    sel.innerHTML = ops.join("");
+  }
+}
+function pasarPagina(accion) {
+  const L = E.vista.libro;
+  if (!L || !$(".libro-abierto")) return;
+  const n = porVista();
+  const antes = L.idx;
+  if (accion === "inicio") L.idx = 0;
+  else if (accion === "fin") L.idx = L.total;
+  else L.idx += +accion * n;
+  const dir = Math.sign(L.idx - antes);
+  mostrarLibro(dir);
+  if (L.idx !== antes) $(".libro")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+let anchoPrevio = innerWidth;
+addEventListener("resize", () => {
+  if ((anchoPrevio >= 900) !== (innerWidth >= 900)) mostrarLibro();
+  anchoPrevio = innerWidth;
+});
+let toqueX = null;
+document.addEventListener("touchstart", (ev) => { toqueX = ev.target.closest(".libro") ? ev.touches[0].clientX : null; }, { passive: true });
+document.addEventListener("touchend", (ev) => {
+  if (toqueX == null) return;
+  const dx = ev.changedTouches[0].clientX - toqueX;
+  toqueX = null;
+  if (Math.abs(dx) > 60) pasarPagina(dx < 0 ? 1 : -1);
+}, { passive: true });
 
 /* ================= modal de carta ================= */
 async function abrirCarta(id) {
@@ -809,6 +885,8 @@ document.addEventListener("click", async (ev) => {
     if (c) cambiarCopias(c, copia.dataset.copia, +copia.dataset.delta);
     return;
   }
+  const pasar = t.closest("[data-pasar]");
+  if (pasar) { pasarPagina(pasar.dataset.pasar); return; }
   const acc = t.closest("[data-accion]")?.dataset.accion;
   if (acc === "cerrar") { if (t.closest("a")) cerrarModal(); else { ev.preventDefault(); cerrarModal(); } return; }
   if (acc === "menu") { $("#nav").classList.toggle("abierta"); return; }
@@ -833,10 +911,17 @@ document.addEventListener("click", async (ev) => {
 
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && !$("#modal").hidden) cerrarModal();
+  if ((ev.key === "ArrowRight" || ev.key === "ArrowLeft") && $("#modal").hidden && !ev.target.closest("input, select, textarea") && $(".libro-abierto")) {
+    ev.preventDefault();
+    pasarPagina(ev.key === "ArrowRight" ? 1 : -1);
+  }
   if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches(".bolsillo[data-carta]")) { ev.preventDefault(); abrirCarta(ev.target.dataset.carta); }
 });
 
 document.addEventListener("change", (ev) => {
+  if (ev.target.matches("[data-ir-pagina]")) {
+    const L = E.vista.libro; const antes = L.idx; L.idx = +ev.target.value; mostrarLibro(Math.sign(L.idx - antes)); return;
+  }
   const f = ev.target.closest("[data-filtro]");
   if (f) { actualizarHash({ [f.dataset.filtro]: f.value }); return; }
   const form = ev.target.closest('form[data-form="buscar"]');
