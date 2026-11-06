@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm";
-import { API, compactar, construirSet, getJSON, mapLimit } from "./datos-comun.js";
+import { API, RAREZAS, compactar, construirSet, getJSON, mapLimit } from "./datos-comun.js";
 
 const C = window.APP_CONFIG;
 const sb = createClient(C.supabaseUrl, C.supabaseKey);
@@ -8,7 +8,7 @@ const FUNC = `${C.supabaseUrl}/functions/v1/admin-usuarios`;
 const VARIANTES = { normal: "Normal", reverse: "Reverso", holo: "Holo", firstEdition: "1.ª edición" };
 const ORDEN_RAREZA = [
   "Común", "Poco común", "Rara", "Rara Holo", "Rara Doble", "Rara Ilustración", "Ultra Rara",
-  "Rara Ilustración Especial", "Hiper Rara", "Mega Hiper Rara", "Rara Pikachu", "Rara Futurista", "Sin rareza",
+  "Rara Ilustración Especial", "Hiper Rara", "Mega Hiper Rara", "Rara Pikachu", "Rara Futurista", "Rara RGB", "Sin rareza",
 ];
 
 const E = {
@@ -27,7 +27,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const eur = (n) => (n == null ? "—" : n.toLocaleString("es-ES", { style: "currency", currency: "EUR" }));
 const app = () => $("#app");
-const img = (c, cal = "low") => (c?.img ? `${c.img}/${cal}.webp` : null);
+let EXTRA = {}; // imágenes manuales (imagenes-extra.json)
+const img = (c, cal = "low") => EXTRA[c?.id]?.[cal] || (c?.img ? `${c.img}/${cal}.webp` : null);
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 function precioVar(c, v) {
@@ -122,7 +123,7 @@ async function cargarSet(id, onProgress) {
     if (ref) s.logo = ref.slice(0, ref.lastIndexOf("/")) + "/logo";
   }
   s.cards.sort((a, b) => String(a.n).localeCompare(String(b.n), "es", { numeric: true }));
-  for (const c of s.cards) E.cartaPorId.set(c.id, c);
+  for (const c of s.cards) { c.rar = RAREZAS[c.rar] || c.rar; E.cartaPorId.set(c.id, c); }
   E.sets[id] = s;
   return s;
 }
@@ -310,7 +311,7 @@ const opcionesRareza = (cartas, sel) =>
 async function vistaInicio() {
   const todas = E.ids.flatMap((id) => E.sets[id]?.cards || []);
   const caras = [...todas].filter((c) => precio(c)).sort((a, b) => precio(b) - precio(a));
-  const abanico = caras.filter((c) => c.img).slice(0, 8);
+  const abanico = caras.filter((c) => img(c)).slice(0, 8);
   app().innerHTML = `
     <section class="portada">
       <div>
@@ -462,7 +463,7 @@ async function vistaBuscar(_, q, silencioso) {
       <div class="resultados">
         ${trozo.map((c) => `
           <button class="resultado" data-carta="${esc(c.id)}">
-            ${c.img ? imgCarta(c, "low", "") : `<div class="mini"></div>`}
+            ${img(c) ? imgCarta(c, "low", "") : `<div class="mini"></div>`}
             <div>
               <div class="t">${esc(c.name)}</div>
               <div class="s">${esc(c.set || "")} · Nº ${esc(c.n)} · ${esc(c.rar)}${c.ill ? ` · Ilus. ${esc(c.ill)}` : ""}</div>
@@ -566,7 +567,7 @@ function listaCartasTabla(filas, cols) {
   return `<div class="tabla-envoltura"><table class="tabla">
     <thead><tr><th></th><th>Carta</th>${cols.map((c) => `<th class="${c.num ? "num" : ""}">${c.t}</th>`).join("")}</tr></thead>
     <tbody>${filas.map((c) => `<tr class="clic" data-carta="${esc(c.id)}">
-      <td>${c.img ? imgCarta(c, "low", "") : ""}</td>
+      <td>${img(c) ? imgCarta(c, "low", "") : ""}</td>
       <td><b>${esc(c.name)}</b><br><small>${esc(c.set || "")} · ${esc(c.n)} · ${esc(c.rar)}</small></td>
       ${cols.map((col) => `<td class="${col.num ? "num" : ""}">${col.f(c)}</td>`).join("")}
     </tr>`).join("")}</tbody></table></div>`;
@@ -648,7 +649,7 @@ function pintarModal(c) {
   const cmUrl = `https://www.cardmarket.com/es/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name)}`;
   caja.innerHTML = `
     <button class="cerrar" data-accion="cerrar" aria-label="Cerrar">✕</button>
-    <div>${c.img ? imgCarta(c, "high", c.name, "grande") : `<div class="grande sin-img">${esc(c.name)}</div>`}</div>
+    <div>${img(c) ? imgCarta(c, "high", c.name, "grande") : `<div class="grande sin-img">${esc(c.name)}</div>`}</div>
     <div>
       <h2>${esc(c.name)}</h2>
       <div class="sub">${esc(c.set || "")} · Nº ${esc(c.n)}</div>
@@ -919,6 +920,7 @@ window.addEventListener("hashchange", () => { cerrarModal(); render(); scrollTo(
   try {
     E.ids = await fetch("colecciones.json", { cache: "no-cache" }).then((r) => r.json());
   } catch { E.ids = ["me04", "me05", "30th"]; }
+  try { EXTRA = await fetch("imagenes-extra.json", { cache: "no-cache" }).then((r) => r.json()); } catch {}
   await cargarSesion().catch((e) => console.error(e));
   sb.auth.onAuthStateChange((evento) => {
     if (evento === "SIGNED_OUT" && E.perfil) { cargarSesion().then(() => render()); }

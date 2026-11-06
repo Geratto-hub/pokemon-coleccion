@@ -3,7 +3,7 @@ export const API = "https://api.tcgdex.net/v2/es";
 const API_EN = "https://api.tcgdex.net/v2/en";
 
 // Algunas rarezas llegan sin traducir desde la API.
-const RAREZAS = {
+export const RAREZAS = {
   "Uncommon": "Poco común",
   "Common": "Común",
   "Rare": "Rara",
@@ -15,6 +15,7 @@ const RAREZAS = {
   "Mega Hyper Rare": "Mega Hiper Rara",
   "Futuristic Rare": "Rara Futurista",
   "Pikachu Rare": "Rara Pikachu",
+  "RGB Rare": "Rara RGB",
   "None": "Sin rareza",
 };
 
