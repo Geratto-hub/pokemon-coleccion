@@ -116,6 +116,11 @@ async function cargarSet(id, onProgress) {
       s = respaldo;
     }
   }
+  // Algunas expansiones no traen logo: se deduce de la ruta de sus imágenes.
+  if (!s.logo) {
+    const ref = s.cards.find((c) => c.img)?.img;
+    if (ref) s.logo = ref.slice(0, ref.lastIndexOf("/")) + "/logo";
+  }
   s.cards.sort((a, b) => String(a.n).localeCompare(String(b.n), "es", { numeric: true }));
   for (const c of s.cards) E.cartaPorId.set(c.id, c);
   E.sets[id] = s;
@@ -320,7 +325,7 @@ async function vistaInicio() {
           <a class="btn" href="#/buscar?orden=precio-desc">Ver las más caras</a>
         </div>
       </div>
-      <div class="abanico">${abanico.map((c) => `${imgCarta(c, "low", c.name, "")}`).join("")}</div>
+      <div class="abanico">${abanico.map((c) => `${imgCarta(c, "low", c.name, "").replace('loading="lazy"', "")}`).join("")}</div>
     </section>
 
     <section class="seccion">
