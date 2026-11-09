@@ -245,10 +245,6 @@ function pintarNav() {
   const r = leerHash().partes[0] || "";
   const enlace = (h, t) => `<a href="#/${h}" class="${r === h ? "activo" : ""}">${t}</a>`;
   let html = enlace("", "Inicio") + enlace("buscar", "Buscador");
-  for (const id of E.ids) {
-    const s = E.sets[id];
-    if (s && !E.perfil) html += `<a href="#/set/${id}" class="${leerHash().partes[1] === id && r === "set" ? "activo" : ""}">${esc(s.name)}</a>`;
-  }
   if (E.perfil) {
     const avisos = numPendientes();
     html += enlace("coleccion", "Mi colección");
@@ -256,6 +252,7 @@ function pintarNav() {
     if (E.perfil.es_admin) html += enlace("admin", "Usuarios");
     html += `<a href="#/cuenta" class="usuario-chip ${r === "cuenta" ? "activo" : ""}">👤 ${esc(E.perfil.usuario)}</a>`;
   } else {
+    html += `<a href="#/expansiones" class="${r === "expansiones" || r === "set" ? "activo" : ""}">Expansiones</a>`;
     html += enlace("entrar", "Entrar");
   }
   $("#nav").innerHTML = html;
@@ -264,6 +261,7 @@ function pintarNav() {
 const RUTAS = {
   "": vistaInicio,
   buscar: vistaBuscar,
+  expansiones: vistaExpansiones,
   set: vistaSet,
   coleccion: vistaColeccion,
   // Direcciones antiguas: siguen funcionando y llevan a su pestaña de Mi colección.
@@ -360,6 +358,15 @@ async function vistaInicio() {
     <section class="seccion">
       <div class="seccion-cab"><h2>Las más valiosas</h2><a href="#/buscar?orden=precio-desc">Ver todas →</a></div>
       <div class="rejilla">${caras.slice(0, 12).map(fichaHTML).join("")}</div>
+    </section>`;
+}
+
+async function vistaExpansiones() {
+  const sets = E.ids.map((id) => E.sets[id]).filter(Boolean);
+  app().innerHTML = `
+    <section class="seccion">
+      <div class="seccion-cab"><h2>Expansiones</h2></div>
+      <div class="tapas">${sets.map((s) => tapaHTML(s, E.perfil ? `#/coleccion/album/${s.id}` : `#/set/${s.id}`)).join("")}</div>
     </section>`;
 }
 
