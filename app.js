@@ -84,9 +84,13 @@ function imgCarta(c, cal = "low", alt = "", clase = "") {
   const alts = [imgExtra(c, cal), enIngles(u)].filter((x) => x && x !== u).join("|");
   return `<img ${clase ? `class="${clase}"` : ""} loading="lazy" src="${esc(u)}" data-alt="${esc(alts)}" data-nombre="${esc(c.name)}" alt="${esc(alt)}">`;
 }
+// Manda el logo de TCGdex; el provisional (_logos en imagenes-extra.json) solo se usa mientras no exista.
+const logoExtra = (s) => EXTRA._logos?.[s.id] || "";
+const tieneLogo = (s) => Boolean(s.logo || logoExtra(s));
 function imgLogo(s, soloImagen = false) {
-  const alts = [`${s.logo}.png`, enIngles(`${s.logo}.png`)].filter(Boolean).join("|");
-  return `<img src="${esc(s.logo)}.webp" data-alt="${esc(alts)}" data-nombre="${esc(soloImagen ? "" : s.name)}" data-logo="1" alt="${esc(s.name)}">`;
+  const src = s.logo ? `${s.logo}.webp` : logoExtra(s);
+  const alts = s.logo ? [`${s.logo}.png`, logoExtra(s), enIngles(`${s.logo}.png`)].filter(Boolean).join("|") : "";
+  return `<img src="${esc(src)}" data-alt="${esc(alts)}" data-nombre="${esc(soloImagen ? "" : s.name)}" data-logo="1" alt="${esc(s.name)}">`;
 }
 document.addEventListener("error", (ev) => {
   const im = ev.target;
@@ -315,7 +319,7 @@ function tapaHTML(s, href) {
     prog = `<div class="progreso"><div class="progreso-barra"><i style="width:${pct}%"></i></div><small>${tengo} / ${s.cards.length} cartas · ${pct}%</small></div>`;
   }
   return `<a class="tapa" href="${href}">
-    <div class="etiqueta">${s.logo ? `${imgLogo(s)}` : `<span>${esc(s.name)}</span>`}</div>
+    <div class="etiqueta">${tieneLogo(s) ? `${imgLogo(s)}` : `<span>${esc(s.name)}</span>`}</div>
     <h3>${esc(s.name)}</h3>
     <div class="datos"><span><b>${s.cards.length}</b> cartas</span><span>Set completo: <b>${eur(valor)}</b></span>${s.fecha ? `<span>${new Date(s.fecha).toLocaleDateString("es-ES", { month: "short", year: "numeric" })}</span>` : ""}</div>
     ${prog}
@@ -380,7 +384,7 @@ async function vistaSet([id], q) {
   const valor = s.cards.reduce((a, c) => a + (precio(c) || 0), 0);
   app().innerHTML = `
     <div class="album-cab">
-      <div class="logo">${s.logo ? imgLogo(s, true) : ""}</div>
+      <div class="logo">${tieneLogo(s) ? imgLogo(s, true) : ""}</div>
       <div>
         <h1>${esc(s.name)}</h1>
         <div class="cifras">
@@ -564,7 +568,7 @@ async function vistaAlbum([id], q) {
   app().innerHTML = `
     ${pestañasColeccion("album")}
     <div class="album-cab">
-      <div class="logo">${s.logo ? imgLogo(s, true) : ""}</div>
+      <div class="logo">${tieneLogo(s) ? imgLogo(s, true) : ""}</div>
       <div>
         <h1>${esc(s.name)}</h1>
         <div class="cifras">
