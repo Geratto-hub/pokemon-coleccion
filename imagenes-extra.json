@@ -1,5 +1,5 @@
 {
-  "_nota": "Imágenes para cartas que todavía no tienen imagen en TCGdex. Clave = id de la carta.",
+  "_nota": "Imágenes provisionales: solo se usan mientras TCGdex no tenga la suya. Clave = id de la carta.",
   "30th-R": {"low": "https://storage.googleapis.com/images.pricecharting.com/o4qakohgyp75apyb/240.jpg", "high": "https://storage.googleapis.com/images.pricecharting.com/o4qakohgyp75apyb/1600.jpg"},
   "30th-G": {"low": "https://storage.googleapis.com/images.pricecharting.com/3qh4l5dpr2ibltif/240.jpg", "high": "https://storage.googleapis.com/images.pricecharting.com/3qh4l5dpr2ibltif/1600.jpg"},
   "30th-B": {"low": "https://storage.googleapis.com/images.pricecharting.com/ix4ihcimka4gqvo6/240.jpg", "high": "https://storage.googleapis.com/images.pricecharting.com/ix4ihcimka4gqvo6/1600.jpg"},

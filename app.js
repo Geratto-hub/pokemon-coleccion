@@ -28,7 +28,9 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const eur = (n) => (n == null ? "—" : n.toLocaleString("es-ES", { style: "currency", currency: "EUR" }));
 const app = () => $("#app");
 let EXTRA = {}; // imágenes manuales (imagenes-extra.json)
-const img = (c, cal = "low") => EXTRA[c?.id]?.[cal] || (c?.img ? `${c.img}/${cal}.webp` : null);
+// Manda la imagen de TCGdex; la manual solo se usa mientras TCGdex no tenga la suya.
+const imgExtra = (c, cal) => EXTRA[c?.id]?.[cal] || "";
+const img = (c, cal = "low") => (c?.img ? `${c.img}/${cal}.webp` : imgExtra(c, cal) || null);
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 function precioVar(c, v) {
@@ -69,12 +71,12 @@ function cacheSet(k, d) {
 }
 
 
-/* Imágenes con alternativas: si la versión española no existe se usa la inglesa,
-   y si tampoco existe se muestra un hueco con el nombre. */
+/* Imágenes con alternativas: si la versión española de TCGdex no existe se usa la manual,
+   luego la inglesa, y si tampoco existe se muestra un hueco con el nombre. */
 const enIngles = (u) => (u && u.includes("/es/") ? u.replace("/es/", "/en/") : "");
 function imgCarta(c, cal = "low", alt = "", clase = "") {
   const u = img(c, cal);
-  const alts = [enIngles(u)].filter(Boolean).join("|");
+  const alts = [imgExtra(c, cal), enIngles(u)].filter((x) => x && x !== u).join("|");
   return `<img ${clase ? `class="${clase}"` : ""} loading="lazy" src="${esc(u)}" data-alt="${esc(alts)}" data-nombre="${esc(c.name)}" alt="${esc(alt)}">`;
 }
 function imgLogo(s, soloImagen = false) {
