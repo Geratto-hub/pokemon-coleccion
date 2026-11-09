@@ -20,7 +20,12 @@ const E = {
   copias: new Map(),  // "cardId|variante" -> cantidad
   deseos: new Set(),
   vista: {},          // estado de filtros por pantalla
+  social: nuevoSocial(),
 };
+
+function nuevoSocial() {
+  return { cargado: false, amistades: [] };
+}
 
 /* ================= utilidades ================= */
 const $ = (s, r = document) => r.querySelector(s);
@@ -160,6 +165,7 @@ async function cargarSesion() {
   E.perfil = null;
   E.copias.clear();
   E.deseos.clear();
+  E.social = nuevoSocial();
   if (!E.sesion) return;
   const { data: perfil } = await sb.from("perfiles").select("usuario, es_admin").eq("id", E.sesion.user.id).maybeSingle();
   if (!perfil) {
@@ -244,7 +250,9 @@ function pintarNav() {
     if (s && !E.perfil) html += `<a href="#/set/${id}" class="${leerHash().partes[1] === id && r === "set" ? "activo" : ""}">${esc(s.name)}</a>`;
   }
   if (E.perfil) {
+    const avisos = numPendientes();
     html += enlace("album", "Mi álbum") + enlace("deseos", "Deseos") + enlace("repetidas", "Repetidas");
+    html += enlace("amigos", `Amigos${avisos ? ` <span class="globo">${avisos}</span>` : ""}`);
     if (E.perfil.es_admin) html += enlace("admin", "Usuarios");
     html += `<a href="#/cuenta" class="usuario-chip ${r === "cuenta" ? "activo" : ""}">👤 ${esc(E.perfil.usuario)}</a>`;
     html += `<button data-accion="salir">Salir</button>`;
@@ -261,12 +269,13 @@ const RUTAS = {
   album: vistaAlbum,
   deseos: vistaDeseos,
   repetidas: vistaRepetidas,
+  amigos: vistaAmigos,
   admin: vistaAdmin,
   cuenta: vistaCuenta,
   entrar: vistaEntrar,
   configurar: vistaConfigurar,
 };
-const PRIVADAS = new Set(["album", "deseos", "repetidas", "cuenta", "admin"]);
+const PRIVADAS = new Set(["album", "deseos", "repetidas", "amigos", "cuenta", "admin"]);
 
 async function render(silencioso = false) {
   const { partes, q } = leerHash();
@@ -277,6 +286,7 @@ async function render(silencioso = false) {
   $("#nav").classList.remove("abierta");
   if (!silencioso && E.ids.some((id) => !E.sets[id])) pantallaCarga();
   await cargarTodos().catch((e) => console.error(e));
+  if (E.perfil && !E.social.cargado) await cargarSocial().catch((e) => console.error(e));
   pintarNav();
   await RUTAS[r](partes.slice(1), q, silencioso);
 }
@@ -770,6 +780,228 @@ function pintarModal(c) {
     </div>`;
 }
 
+/* ================= amigos ================= */
+async function rpc(nombre, args) {
+  const { data, error } = await sb.rpc(nombre, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+const solicitudesRecibidas = () => E.social.amistades.filter((a) => a.estado === "pendiente" && !a.soy_solicitante);
+const solicitudesEnviadas = () => E.social.amistades.filter((a) => a.estado === "pendiente" && a.soy_solicitante);
+const amigos = () => E.social.amistades.filter((a) => a.estado === "aceptada");
+const numPendientes = () => solicitudesRecibidas().length;
+
+async function asegurarCartas(ids) {
+  const faltan = [...new Set(ids)].filter((id) => id && !E.cartaPorId.has(id));
+  if (faltan.length) {
+    await mapLimit(faltan, 6, (id) => getJSON(`${API}/cards/${encodeURIComponent(id)}`).then((d) => E.cartaPorId.set(id, compactar(d))).catch(() => {}));
+  }
+}
+
+async function cargarSocial() {
+  if (!E.perfil) return;
+  E.social.amistades = (await rpc("mis_amistades")) || [];
+  E.social.cargado = true;
+}
+
+function pestañasAmigos(activa) {
+  const p = (k, t, n) => `<a class="chip ${activa === k ? "activo" : ""}" href="#/amigos/${k}">${t}${n ? ` <span class="n">${n}</span>` : ""}</a>`;
+  return `<div class="barra-album pestañas">
+    ${p("anadir", "Añadir")}
+    ${p("lista", "Amigos", amigos().length)}
+    ${p("pendiente", "Pendiente", numPendientes())}
+  </div>`;
+}
+
+async function vistaAmigos([sub = "lista", x], q) {
+  if (!E.social.cargado) {
+    app().innerHTML = `<div class="tarjeta vacio-msg"><p class="error">No se han podido cargar tus amigos. Inténtalo de nuevo en un momento.</p></div>`;
+    return;
+  }
+  if (sub === "anadir") return vistaAmigosAnadir();
+  if (sub === "pendiente") return vistaAmigosPendiente();
+  if (sub === "perfil") return vistaPerfilAmigo(x, q);
+  return vistaAmigosLista();
+}
+
+function vistaAmigosAnadir() {
+  const enviadas = solicitudesEnviadas();
+  app().innerHTML = `
+    ${pestañasAmigos("anadir")}
+    <div class="tarjeta">
+      <h2>Añadir un amigo</h2>
+      <form class="form-fila" data-form="anadir-amigo">
+        <label class="campo">Nombre de usuario<input name="usuario" required autocapitalize="none" autocomplete="off" maxlength="20"></label>
+        <button class="btn rojo">Enviar solicitud</button>
+      </form>
+      <p class="error" data-error></p>
+    </div>
+    ${enviadas.length ? `<div class="tarjeta">
+      <h2>Solicitudes enviadas</h2>
+      <div class="filas">${enviadas.map((a) => `
+        <div class="fila"><div><b>${esc(a.usuario)}</b><small>Esperando respuesta</small></div>
+          <div class="fila-acc"><button class="btn peq" data-social="eliminar-amistad" data-id="${esc(a.id)}">Cancelar</button></div>
+        </div>`).join("")}</div>
+    </div>` : ""}`;
+}
+
+function vistaAmigosLista() {
+  const lista = amigos();
+  app().innerHTML = `
+    ${pestañasAmigos("lista")}
+    <div class="tarjeta">
+      <h2>Mis amigos</h2>
+      ${lista.length ? `<div class="filas">${lista.map((a) => `
+        <div class="fila">
+          <div><b>${esc(a.usuario)}</b></div>
+          <div class="fila-acc">
+            <a class="btn peq azul" href="#/amigos/perfil/${encodeURIComponent(a.usuario)}">Ver colección</a>
+            <button class="btn peq" data-social="eliminar-amigo" data-id="${esc(a.id)}" data-nombre="${esc(a.usuario)}">Eliminar</button>
+          </div>
+        </div>`).join("")}</div>`
+      : `<div class="vacio-msg"><div class="titulo-pixel">Aún sin amigos</div><a href="#/amigos/anadir">Añade a alguien por su nombre de usuario</a>.</div>`}
+    </div>`;
+}
+
+function vistaAmigosPendiente() {
+  const solicitudes = solicitudesRecibidas();
+  app().innerHTML = `
+    ${pestañasAmigos("pendiente")}
+    <div class="tarjeta">
+      <h2>Solicitudes de amistad</h2>
+      ${solicitudes.length ? `<div class="filas">${solicitudes.map((a) => `
+        <div class="fila"><div><b>${esc(a.usuario)}</b><small>Quiere ser tu amigo</small></div>
+          <div class="fila-acc">
+            <button class="btn peq rojo" data-social="aceptar-amistad" data-id="${esc(a.id)}">Aceptar</button>
+            <button class="btn peq" data-social="rechazar-amistad" data-id="${esc(a.id)}">Rechazar</button>
+          </div>
+        </div>`).join("")}</div>` : `<p class="sub-vacio">No tienes solicitudes por responder.</p>`}
+    </div>`;
+}
+
+function mapaColeccion(filas) {
+  const m = new Map();
+  for (const f of filas || []) {
+    if (!m.has(f.card_id)) m.set(f.card_id, {});
+    m.get(f.card_id)[f.variante] = f.cantidad;
+  }
+  return m;
+}
+const totalEn = (mapa, id) => Object.values(mapa.get(id) || {}).reduce((a, b) => a + b, 0);
+
+function fichaAmigoHTML(c, mapa, etiqueta) {
+  const copias = Object.entries(mapa.get(c.id) || {}).map(([v, n]) => `${n} ${VARIANTES[v] || v}`).join(" · ");
+  return `<div class="ficha ficha-amigo" data-carta="${esc(c.id)}" role="button" tabindex="0">
+    <div class="img">${img(c) ? imgCarta(c, "low", c.name) : `<div class="sin-img">${esc(c.name)}</div>`}</div>
+    <div class="nom">${esc(c.name)}</div>
+    <div class="meta">${esc(c.set || "")} · ${esc(c.n)}</div>
+    <div class="precio">${eur(precio(c))}</div>
+    ${copias ? `<div class="meta">${esc(copias)}</div>` : ""}
+    ${etiqueta ? `<div class="etq-amigo">${esc(etiqueta)}</div>` : ""}
+  </div>`;
+}
+
+function filtrosYRejilla(cartas, q, pintar) {
+  const set = q.get("set") || "";
+  const txt = norm(q.get("q") || "");
+  const filtradas = cartas.filter((c) => (!set || c.sid === set) && (!txt || norm(c.name).includes(txt) || String(c.n) === txt));
+  const POR_PAG = 40;
+  const paginas = Math.max(1, Math.ceil(filtradas.length / POR_PAG));
+  const pag = Math.min(paginas, Math.max(1, +q.get("p") || 1));
+  const trozo = filtradas.slice((pag - 1) * POR_PAG, pag * POR_PAG);
+  const opciones = E.ids.map((id) => `<option value="${id}" ${set === id ? "selected" : ""}>${esc(E.sets[id]?.name || id)}</option>`).join("");
+  return `<div class="barra-album">
+      <input class="input" data-filtro="q" placeholder="Buscar carta…" value="${esc(q.get("q") || "")}" aria-label="Buscar carta">
+      <select class="select" data-filtro="set" aria-label="Expansión"><option value="">Todas las expansiones</option>${opciones}</select>
+    </div>
+    ${trozo.length ? `<div class="rejilla">${trozo.map(pintar).join("")}</div>` : `<div class="tarjeta vacio-msg"><div class="titulo-pixel">¡Nada por aquí!</div>No hay cartas con este filtro.</div>`}
+    ${paginas > 1 ? `<div class="paginacion">${Array.from({ length: paginas }, (_, i) => i + 1).map((n) => `<button class="btn peq ${n === pag ? "azul" : ""}" data-pag="${n}">${n}</button>`).join("")}</div>` : ""}`;
+}
+
+async function vistaPerfilAmigo(usuario, q) {
+  const amigo = amigos().find((a) => a.usuario === decodeURIComponent(usuario || ""));
+  if (!amigo) { location.hash = "#/amigos/lista"; return; }
+  let filas;
+  try { filas = await rpc("coleccion_amigo", { p_amigo: amigo.otro }); }
+  catch (e) { app().innerHTML = `${pestañasAmigos("lista")}<div class="tarjeta"><p class="error">${esc(e.message)}</p></div>`; return; }
+  const mapa = mapaColeccion(filas);
+  await asegurarCartas([...mapa.keys()]);
+  const delCatalogo = E.ids.flatMap((id) => E.sets[id]?.cards || []);
+  const conocidas = new Set(delCatalogo.map((c) => c.id));
+  const extras = [...mapa.keys()].filter((id) => !conocidas.has(id)).map((id) => E.cartaPorId.get(id)).filter(Boolean);
+  const todas = [...delCatalogo, ...extras];
+
+  const tiene = todas.filter((c) => totalEn(mapa, c.id) > 0);
+  const grupos = {
+    tiene,
+    repetidas: tiene.filter((c) => totalEn(mapa, c.id) > 1),
+    faltan: delCatalogo.filter((c) => totalEn(mapa, c.id) === 0),
+  };
+  const ver = grupos[q.get("ver")] ? q.get("ver") : "tiene";
+  const chip = (k, t) => {
+    const p = new URLSearchParams({ ...Object.fromEntries(q), ver: k });
+    p.delete("p");
+    return `<a class="chip ${ver === k ? "activo" : ""}" href="#/amigos/perfil/${encodeURIComponent(amigo.usuario)}?${p}">${t} <span class="n">${grupos[k].length}</span></a>`;
+  };
+  const etiqueta = (c) => (ver === "faltan" ? (laTengo(c) ? "La tienes" : "") : (laTengo(c) ? "" : "Te falta"));
+  app().innerHTML = `
+    ${pestañasAmigos("lista")}
+    <div class="resumen">
+      <div class="cifra"><small>Colección de</small><b>${esc(amigo.usuario)}</b></div>
+      <div class="cifra"><small>Cartas distintas</small><b>${tiene.length}</b></div>
+      <div class="cifra"><small>Con repetidas</small><b class="azul">${grupos.repetidas.length}</b></div>
+      <div class="cifra"><small>Le faltan</small><b class="rojo">${grupos.faltan.length}</b></div>
+    </div>
+    <div class="barra-album">
+      ${chip("tiene", "Tiene")}
+      ${chip("repetidas", "Repetidas")}
+      ${chip("faltan", "Le faltan")}
+    </div>
+    ${filtrosYRejilla(ordenar(grupos[ver], "precio-desc"), q, (c) => fichaAmigoHTML(c, mapa, etiqueta(c)))}`;
+}
+
+async function accionSocial(el) {
+  const { social: accion, id, nombre } = el.dataset;
+  if (accion === "eliminar-amigo" && el.dataset.confirmar !== "1") {
+    el.dataset.confirmar = "1";
+    el.textContent = `¿Eliminar a ${nombre}?`;
+    setTimeout(() => { if (el.isConnected) { el.dataset.confirmar = ""; el.textContent = "Eliminar"; } }, 4000);
+    return;
+  }
+  el.disabled = true;
+  try {
+    let msg = "";
+    if (accion === "aceptar-amistad") { await rpc("responder_solicitud_amistad", { p_id: id, p_aceptar: true }); msg = "¡Ya sois amigos!"; }
+    if (accion === "rechazar-amistad") { await rpc("responder_solicitud_amistad", { p_id: id, p_aceptar: false }); msg = "Solicitud rechazada"; }
+    if (accion === "eliminar-amistad") { await rpc("eliminar_amistad", { p_id: id }); msg = "Solicitud cancelada"; }
+    if (accion === "eliminar-amigo") { await rpc("eliminar_amistad", { p_id: id }); msg = "Amigo eliminado"; }
+    await cargarSocial();
+    aviso(msg);
+    const y = scrollY;
+    await render(true);
+    scrollTo(0, y);
+  } catch (e) {
+    el.disabled = false;
+    aviso(e.message, true);
+  }
+}
+
+// Comprueba cada 30 s si hay solicitudes nuevas.
+setInterval(async () => {
+  if (!E.perfil || !E.social.cargado || document.hidden) return;
+  const antes = JSON.stringify(E.social.amistades);
+  try { await cargarSocial(); } catch { return; }
+  if (JSON.stringify(E.social.amistades) === antes) return;
+  pintarNav();
+  const escribiendo = document.activeElement?.matches("input, select, textarea");
+  if (leerHash().partes[0] === "amigos" && $("#modal").hidden && !escribiendo) {
+    const y = scrollY;
+    await render(true);
+    scrollTo(0, y);
+  }
+}, 30000);
+
 /* ================= acceso ================= */
 const emailDe = (u) => `${u.trim().toLowerCase()}@${C.dominioUsuarios}`;
 
@@ -900,6 +1132,8 @@ document.addEventListener("click", async (ev) => {
   if (acc === "menu") { $("#nav").classList.toggle("abierta"); return; }
   if (acc === "salir") { await sb.auth.signOut(); await cargarSesion(); location.hash = "#/"; render(); return; }
   if (acc === "deseo") { const c = E.cartaPorId.get($("#modal-caja").dataset.id); if (c) alternarDeseo(c); return; }
+  const social = t.closest("[data-social]");
+  if (social) { accionSocial(social); return; }
   const carta = t.closest("[data-carta]");
   if (carta) { abrirCarta(carta.dataset.carta); return; }
   const pag = t.closest("[data-pag]");
@@ -923,7 +1157,7 @@ document.addEventListener("keydown", (ev) => {
     ev.preventDefault();
     pasarPagina(ev.key === "ArrowRight" ? 1 : -1);
   }
-  if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches(".bolsillo[data-carta]")) { ev.preventDefault(); abrirCarta(ev.target.dataset.carta); }
+  if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches(".bolsillo[data-carta], .ficha-amigo[data-carta]")) { ev.preventDefault(); abrirCarta(ev.target.dataset.carta); }
 });
 
 document.addEventListener("change", (ev) => {
@@ -988,6 +1222,15 @@ document.addEventListener("submit", async (ev) => {
     const { error } = await sb.auth.updateUser({ password: fd.password });
     if (error) return fallo(error.message);
     form.reset(); boton.disabled = false; aviso("Contraseña cambiada");
+    return;
+  }
+  if (tipo === "anadir-amigo") {
+    try {
+      const r = await rpc("enviar_solicitud_amistad", { p_usuario: fd.usuario });
+      await cargarSocial();
+      aviso(r === "aceptada" ? "¡Ya sois amigos!" : "Solicitud enviada");
+      await render(true);
+    } catch (e) { fallo(e.message); }
     return;
   }
   if (tipo === "crear-usuario") {

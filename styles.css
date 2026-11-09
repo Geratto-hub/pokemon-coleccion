@@ -352,3 +352,14 @@ h1, h2, h3 { margin: 0; }
 }
 /* que el libro abierto quepa en pantalla sin desplazarse */
 .libro .carpeta.libro-abierto.doble { max-width: max(640px, calc((100vh - 110px) * 1.38)); margin: 0 auto; }
+
+/* ---------- Amigos ---------- */
+.nav .globo { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 2px; border-radius: 999px; background: var(--amarillo); color: var(--azul-osc); font-size: 12px; font-weight: 900; line-height: 20px; text-align: center; }
+.pestañas { margin-top: 0; }
+.filas { display: flex; flex-direction: column; }
+.fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--linea); }
+.fila:first-child { border-top: 0; }
+.fila small { display: block; color: var(--gris); font-weight: 700; }
+.fila-acc { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sub-vacio { color: var(--gris); font-weight: 700; margin: 0; }
+.etq-amigo { align-self: flex-start; background: var(--amarillo); color: var(--azul-osc); border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 900; }
