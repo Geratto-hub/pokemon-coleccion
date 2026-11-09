@@ -251,7 +251,7 @@ function pintarNav() {
   }
   if (E.perfil) {
     const avisos = numPendientes();
-    html += enlace("album", "Mi álbum") + enlace("deseos", "Deseos") + enlace("repetidas", "Repetidas");
+    html += enlace("coleccion", "Mi colección");
     html += enlace("amigos", `Amigos${avisos ? ` <span class="globo">${avisos}</span>` : ""}`);
     if (E.perfil.es_admin) html += enlace("admin", "Usuarios");
     html += `<a href="#/cuenta" class="usuario-chip ${r === "cuenta" ? "activo" : ""}">👤 ${esc(E.perfil.usuario)}</a>`;
@@ -266,23 +266,29 @@ const RUTAS = {
   "": vistaInicio,
   buscar: vistaBuscar,
   set: vistaSet,
-  album: vistaAlbum,
-  deseos: vistaDeseos,
-  repetidas: vistaRepetidas,
+  coleccion: vistaColeccion,
+  // Direcciones antiguas: siguen funcionando y llevan a su pestaña de Mi colección.
+  album: ([id], q) => redirigir(id ? `coleccion/album/${id}` : "coleccion", q),
+  deseos: (_, q) => redirigir("coleccion/deseos", q),
+  repetidas: (_, q) => redirigir("coleccion/repetidas", q),
   amigos: vistaAmigos,
   admin: vistaAdmin,
   cuenta: vistaCuenta,
   entrar: vistaEntrar,
   configurar: vistaConfigurar,
 };
-const PRIVADAS = new Set(["album", "deseos", "repetidas", "amigos", "cuenta", "admin"]);
+const PRIVADAS = new Set(["coleccion", "amigos", "cuenta", "admin"]);
+
+function redirigir(ruta, q) {
+  location.replace(`#/${ruta}${q?.toString() ? "?" + q : ""}`);
+}
 
 async function render(silencioso = false) {
   const { partes, q } = leerHash();
   let r = partes[0] || "";
   if (!RUTAS[r]) r = "";
   if (PRIVADAS.has(r) && !E.perfil) { location.hash = "#/entrar"; return; }
-  if (r === "admin" && !E.perfil.es_admin) { location.hash = "#/album"; return; }
+  if (r === "admin" && !E.perfil.es_admin) { location.hash = "#/coleccion"; return; }
   $("#nav").classList.remove("abierta");
   if (!silencioso && E.ids.some((id) => !E.sets[id])) pantallaCarga();
   await cargarTodos().catch((e) => console.error(e));
@@ -340,7 +346,7 @@ async function vistaInicio() {
           <button class="btn azul">Buscar</button>
         </form>
         <div class="acciones">
-          ${E.perfil ? `<a class="btn rojo" href="#/album">Abrir mi álbum</a>` : `<a class="btn" href="#/entrar">Entrar</a>`}
+          ${E.perfil ? `<a class="btn rojo" href="#/coleccion">Abrir mi colección</a>` : `<a class="btn" href="#/entrar">Entrar</a>`}
           <a class="btn" href="#/buscar?orden=precio-desc">Ver las más caras</a>
         </div>
       </div>
@@ -349,7 +355,7 @@ async function vistaInicio() {
 
     <section class="seccion">
       <div class="seccion-cab"><h2>Expansiones</h2></div>
-      <div class="tapas">${E.ids.map((id) => E.sets[id] && tapaHTML(E.sets[id], E.perfil ? `#/album/${id}` : `#/set/${id}`)).join("")}</div>
+      <div class="tapas">${E.ids.map((id) => E.sets[id] && tapaHTML(E.sets[id], E.perfil ? `#/coleccion/album/${id}` : `#/set/${id}`)).join("")}</div>
     </section>
 
     <section class="seccion">
@@ -377,7 +383,7 @@ async function vistaSet([id], q) {
           ${s.fecha ? `<div class="cifra"><small>Salida</small><b>${new Date(s.fecha).toLocaleDateString("es-ES")}</b></div>` : ""}
         </div>
       </div>
-      <div>${E.perfil ? `<a class="btn rojo" href="#/album/${id}">Abrir en mi álbum</a>` : `<a class="btn" href="#/entrar">Entrar para coleccionar</a>`}</div>
+      <div>${E.perfil ? `<a class="btn rojo" href="#/coleccion/album/${id}">Abrir en mi colección</a>` : `<a class="btn" href="#/entrar">Entrar para coleccionar</a>`}</div>
     </div>
     <div class="barra-album">
       <select class="select" data-filtro="rar">${opcionesRareza(s.cards, rar)}</select>
@@ -495,9 +501,39 @@ async function vistaBuscar(_, q, silencioso) {
 }
 
 /* ================= vistas privadas ================= */
+function pestañasColeccion(activa) {
+  const p = (k, h, t) => `<a class="pestaña ${activa === k ? "activo" : ""}" href="#/${h}" ${activa === k ? 'aria-current="page"' : ""}>${t}</a>`;
+  return `<nav class="pestañas-coleccion" aria-label="Secciones de mi colección">
+    ${p("album", "coleccion", "Mi álbum")}
+    ${p("deseos", "coleccion/deseos", "★ Deseos")}
+    ${p("repetidas", "coleccion/repetidas", "Repetidas")}
+  </nav>`;
+}
+
+function estadisticasColeccion() {
+  const todas = E.ids.flatMap((id) => E.sets[id]?.cards || []);
+  const valor = todas.reduce((a, c) => a + valorCopias(c), 0);
+  const unicas = todas.filter(laTengo).length;
+  const copias = [...E.copias.values()].reduce((a, b) => a + b, 0);
+  const repes = todas.reduce((a, c) => a + Math.max(0, totalCopias(c) - 1), 0);
+  return `<div class="resumen resumen-coleccion">
+      <div class="cifra"><small>Valor total de mi colección</small><b class="rojo">${eur(valor)}</b></div>
+      <div class="cifra"><small>Cartas distintas</small><b>${unicas} / ${todas.length}</b></div>
+      <div class="cifra"><small>Copias en total</small><b>${copias}</b></div>
+      <div class="cifra"><small>Repetidas</small><b class="azul">${repes}</b></div>
+      <div class="cifra"><small>En deseos</small><b>${E.deseos.size}</b></div>
+    </div>`;
+}
+
+async function vistaColeccion([sub, id], q) {
+  if (sub === "deseos") return vistaDeseos();
+  if (sub === "repetidas") return vistaRepetidas();
+  if (sub === "album" && id) return vistaAlbum([id], q);
+  return vistaResumenAlbum();
+}
+
 async function vistaAlbum([id], q) {
-  if (!id) return vistaResumenAlbum();
-  if (!E.ids.includes(id)) { location.hash = "#/album"; return; }
+  if (!E.ids.includes(id)) { location.hash = "#/coleccion"; return; }
   const s = await cargarSet(id);
   const filtro = q.get("ver") || "todas";
   const rar = q.get("rar") || "";
@@ -514,12 +550,13 @@ async function vistaAlbum([id], q) {
   const grupos = { todas: s.cards, tengo, faltan, repetidas: repes, deseos: deseadas };
   let cartas = (grupos[filtro] || s.cards).filter((c) => (!rar || c.rar === rar) && (!txt || norm(c.name).includes(txt) || String(c.n) === txt));
 
-  const chip = (k, t, n) => `<a class="chip ${filtro === k ? "activo" : ""}" href="#/album/${id}?${new URLSearchParams({ ...Object.fromEntries(q), ver: k })}">${t} <span class="n">${n}</span></a>`;
+  const chip = (k, t, n) => `<a class="chip ${filtro === k ? "activo" : ""}" href="#/coleccion/album/${id}?${new URLSearchParams({ ...Object.fromEntries(q), ver: k })}">${t} <span class="n">${n}</span></a>`;
 
   const paginas = [];
   for (let i = 0; i < cartas.length; i += 9) paginas.push(cartas.slice(i, i + 9));
 
   app().innerHTML = `
+    ${pestañasColeccion("album")}
     <div class="album-cab">
       <div class="logo">${s.logo ? imgLogo(s, true) : ""}</div>
       <div>
@@ -577,21 +614,11 @@ function bolsilloHTML(c) {
 
 async function vistaResumenAlbum() {
   const sets = E.ids.map((id) => E.sets[id]).filter(Boolean);
-  const todas = sets.flatMap((s) => s.cards);
-  const valor = todas.reduce((a, c) => a + valorCopias(c), 0);
-  const unicas = todas.filter(laTengo).length;
-  const copias = [...E.copias.values()].reduce((a, b) => a + b, 0);
-  const repes = todas.reduce((a, c) => a + Math.max(0, totalCopias(c) - 1), 0);
   app().innerHTML = `
-    <div class="resumen">
-      <div class="cifra"><small>Valor total de mi colección</small><b class="rojo">${eur(valor)}</b></div>
-      <div class="cifra"><small>Cartas distintas</small><b>${unicas} / ${todas.length}</b></div>
-      <div class="cifra"><small>Copias en total</small><b>${copias}</b></div>
-      <div class="cifra"><small>Repetidas</small><b class="azul">${repes}</b></div>
-      <div class="cifra"><small>En deseos</small><b>${E.deseos.size}</b></div>
-    </div>
+    ${estadisticasColeccion()}
+    ${pestañasColeccion("album")}
     <div class="seccion-cab"><h2>Mis álbumes</h2></div>
-    <div class="tapas">${sets.map((s) => tapaHTML(s, `#/album/${s.id}`)).join("")}</div>`;
+    <div class="tapas">${sets.map((s) => tapaHTML(s, `#/coleccion/album/${s.id}`)).join("")}</div>`;
 }
 
 function listaCartasTabla(filas, cols) {
@@ -614,13 +641,15 @@ async function vistaDeseos() {
   const pendientes = cartas.filter((c) => !laTengo(c));
   const total = pendientes.reduce((a, c) => a + (precio(c) || 0), 0);
   app().innerHTML = `
-    <div class="resumen">
-      <div class="cifra"><small>Cartas en la lista</small><b>${cartas.length}</b></div>
-      <div class="cifra"><small>Aún no las tengo</small><b>${pendientes.length}</b></div>
-      <div class="cifra"><small>Conseguirlas costaría</small><b class="rojo">${eur(total)}</b></div>
-    </div>
+    ${estadisticasColeccion()}
+    ${pestañasColeccion("deseos")}
     <div class="tarjeta">
       <h2>★ Lista de deseos</h2>
+      <div class="cifras-pestaña">
+        <div class="cifra"><small>Cartas en la lista</small><b>${cartas.length}</b></div>
+        <div class="cifra"><small>Aún no las tengo</small><b>${pendientes.length}</b></div>
+        <div class="cifra"><small>Conseguirlas costaría</small><b class="rojo">${eur(total)}</b></div>
+      </div>
       ${cartas.length ? listaCartasTabla(cartas, [
         { t: "Estado", f: (c) => (laTengo(c) ? `<span class="ok">¡Conseguida!</span>` : "Pendiente") },
         { t: "Precio", num: true, f: (c) => `<b>${eur(precio(c))}</b>` },
@@ -642,13 +671,15 @@ async function vistaRepetidas() {
   const totalValor = repes.reduce((a, r) => a + r.valor, 0);
   const info = new Map(repes.map((r) => [r.c.id, r]));
   app().innerHTML = `
-    <div class="resumen">
-      <div class="cifra"><small>Cartas con repetidas</small><b>${repes.length}</b></div>
-      <div class="cifra"><small>Copias sobrantes</small><b class="azul">${totalExtra}</b></div>
-      <div class="cifra"><small>Valor de las sobrantes</small><b class="rojo">${eur(totalValor)}</b></div>
-    </div>
+    ${estadisticasColeccion()}
+    ${pestañasColeccion("repetidas")}
     <div class="tarjeta">
       <h2>Repetidas para cambiar o vender</h2>
+      <div class="cifras-pestaña">
+        <div class="cifra"><small>Cartas con repetidas</small><b>${repes.length}</b></div>
+        <div class="cifra"><small>Copias sobrantes</small><b class="azul">${totalExtra}</b></div>
+        <div class="cifra"><small>Valor de las sobrantes</small><b class="rojo">${eur(totalValor)}</b></div>
+      </div>
       ${repes.length ? listaCartasTabla(repes.map((r) => r.c), [
         { t: "Copias", num: true, f: (c) => c.v.filter((v) => cuantas(c.id, v)).map((v) => `${cuantas(c.id, v)} ${VARIANTES[v] || v}`).join("<br>") },
         { t: "Sobran", num: true, f: (c) => `<b>${info.get(c.id).extra}</b>` },
@@ -1006,7 +1037,7 @@ setInterval(async () => {
 const emailDe = (u) => `${u.trim().toLowerCase()}@${C.dominioUsuarios}`;
 
 async function vistaEntrar() {
-  if (E.perfil) { location.hash = "#/album"; return; }
+  if (E.perfil) { location.hash = "#/coleccion"; return; }
   app().innerHTML = `
     <div class="acceso"><form class="tarjeta" data-form="entrar">
       <h1>ENTRAR</h1>
@@ -1203,7 +1234,7 @@ document.addEventListener("submit", async (ev) => {
     if (error) return fallo(/invalid/i.test(error.message) ? "Usuario o contraseña incorrectos" : error.message);
     await cargarSesion();
     if (!E.perfil) return fallo("Esta cuenta no tiene acceso");
-    location.hash = "#/album";
+    location.hash = "#/coleccion";
     return;
   }
   if (tipo === "configurar") {

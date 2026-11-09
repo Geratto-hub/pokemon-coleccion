@@ -363,3 +363,19 @@ h1, h2, h3 { margin: 0; }
 .fila-acc { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .sub-vacio { color: var(--gris); font-weight: 700; margin: 0; }
 .etq-amigo { align-self: flex-start; background: var(--amarillo); color: var(--azul-osc); border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 900; }
+
+/* Mi colección: selector de pestañas */
+.pestañas-coleccion { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 0 22px; background: var(--blanco); border: 3px solid var(--azul-osc); border-radius: 12px; box-shadow: 0 4px 0 var(--azul-osc); overflow: hidden; }
+.pestaña { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 8px 6px; font-weight: 900; font-size: 15px; color: var(--azul-osc); text-align: center; text-decoration: none; }
+.pestaña + .pestaña { border-left: 3px solid var(--azul-osc); }
+.pestaña:hover { background: var(--papel); }
+.pestaña:focus-visible { outline: 3px solid var(--amarillo); outline-offset: -3px; }
+.pestaña.activo { background: var(--rojo); color: var(--blanco); }
+.cifras-pestaña { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--linea); }
+@media (max-width: 600px) {
+  .resumen-coleccion { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .resumen-coleccion .cifra:first-child { grid-column: 1 / -1; }
+  .resumen-coleccion .cifra { padding: 10px 12px; }
+  .resumen-coleccion .cifra b { font-size: 20px; }
+  .pestaña { font-size: 14px; }
+}
