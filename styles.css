@@ -381,3 +381,11 @@ h1, h2, h3 { margin: 0; }
 }
 .salir-cuenta { margin-top: 18px; }
 .salir-cuenta .btn { width: 100%; }
+
+/* ---------- PSA ---------- */
+.psa-caja { margin-top: 12px; }
+.psa-btn { font-family: var(--pixel); font-size: 11px; letter-spacing: 1px; }
+.psa-panel { margin-top: 10px; background: var(--blanco); border: 3px solid var(--azul-osc); border-radius: 12px; padding: 14px; box-shadow: 0 3px 0 var(--azul-osc); }
+.psa-panel p { margin: 0 0 8px; font-weight: 600; }
+.psa-grados { display: flex; gap: 8px; flex-wrap: wrap; }
+.psa-grados span { font-family: var(--pixel); font-size: 10px; background: var(--rojo); color: #fff; padding: 7px 9px; border-radius: 6px; border: 2px solid var(--rojo-prof); }

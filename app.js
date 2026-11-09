@@ -764,6 +764,7 @@ async function abrirCarta(id) {
     try { c = compactar(await getJSON(`${API}/cards/${encodeURIComponent(id)}`)); E.cartaPorId.set(id, c); }
     catch { return aviso("No se pudo cargar la carta", true); }
   }
+  E.psaAbierto = false;
   pintarModal(c);
   $("#modal").hidden = false;
   document.body.style.overflow = "hidden";
@@ -772,6 +773,43 @@ function cerrarModal() {
   $("#modal").hidden = true;
   document.body.style.overflow = "";
 }
+/* ---- PSA: enlace a la ficha de la carta en PriceCharting ---- */
+const PC_SLUGS = { "30th": "pokemon-30th-celebration" };
+const slugPC = (t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const cacheEN = new Map();
+async function datosIngles(c) {
+  if (cacheEN.has(c.id)) return cacheEN.get(c.id);
+  const d = await getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(c.id)}`);
+  const r = { nombre: d.name, set: d.set?.name || "" };
+  cacheEN.set(c.id, r);
+  return r;
+}
+async function pintarPSA(c) {
+  const panel = $("[data-psa-panel]");
+  if (!panel) return;
+  panel.innerHTML = `<p class="sub">Buscando la carta en PriceCharting…</p>`;
+  let en;
+  try { en = await datosIngles(c); } catch { en = null; }
+  if ($("#modal-caja").dataset.id !== c.id) return;
+  const sid = c.sid || c.id.slice(0, c.id.lastIndexOf("-"));
+  const num = String(c.n).replace(/^0+(?=\w)/, "");
+  const nombre = en?.nombre || c.name;
+  const setEn = en?.set || c.set || "";
+  const slugSet = PC_SLUGS[sid] || `pokemon-${slugPC(setEn)}`;
+  // Las cartas especiales sin número (p. ej. Mew R/RGB) usan "nombre-letraRGB"
+  const slugCarta = /^[a-z]$/i.test(num) ? `${slugPC(nombre)}-${num.toLowerCase()}rgb` : `${slugPC(nombre)}-${slugPC(num)}`;
+  const directo = en && /^[\w\s.-]+$/.test(nombre) ? `https://www.pricecharting.com/game/${slugSet}/${slugCarta}` : null;
+  const busqueda = `https://www.pricecharting.com/search-products?type=prices&q=${encodeURIComponent(`${nombre} ${setEn} ${num}`)}`;
+  panel.innerHTML = `
+    <p>Consulta el precio estimado de esta carta graduada en <b>PSA 8</b>, <b>PSA 9</b> y <b>PSA 10</b> en PriceCharting${en ? ` (aparece como «${esc(nombre)}», ${esc(setEn)})` : ""}.</p>
+    <div class="psa-grados"><span>PSA 8</span><span>PSA 9</span><span>PSA 10</span></div>
+    <div class="acciones-carta" style="margin-top:10px">
+      <a class="btn azul" href="${esc(directo || busqueda)}" target="_blank" rel="noopener">Ver precios PSA ↗</a>
+      ${directo ? `<a class="btn peq" href="${esc(busqueda)}" target="_blank" rel="noopener">¿No es esta carta? Buscar</a>` : ""}
+    </div>
+    <p class="sub" style="font-size:12px;margin-bottom:0">En PriceCharting, «Grade 8» y «Grade 9» corresponden a PSA 8 y PSA 9, y los precios están en dólares.</p>`;
+}
+
 function pintarModal(c) {
   const caja = $("#modal-caja");
   caja.dataset.id = c.id;
@@ -797,6 +835,10 @@ function pintarModal(c) {
         ${tieneReverso ? `<div class="cifra"><small>Reverso</small><b>${eur(p.th)}</b></div>` : ""}
       </div>
       <p class="sub" style="font-size:13px">Tendencia de Cardmarket${p.upd ? `, actualizada el ${new Date(p.upd).toLocaleDateString("es-ES")}` : ""}. <a href="${cmUrl}" target="_blank" rel="noopener">Ver en Cardmarket ↗</a></p>
+      <div class="psa-caja">
+        <button class="btn peq psa-btn ${E.psaAbierto ? "azul" : ""}" data-accion="psa" aria-expanded="${E.psaAbierto ? "true" : "false"}">PSA ${E.psaAbierto ? "▲" : "▼"}</button>
+        <div class="psa-panel" ${E.psaAbierto ? "" : "hidden"} data-psa-panel></div>
+      </div>
       ${E.perfil ? `
         <div class="mis-copias">
           <h3>MIS COPIAS</h3>
@@ -815,6 +857,7 @@ function pintarModal(c) {
           <button class="btn ${E.deseos.has(c.id) ? "azul" : ""}" data-accion="deseo">${E.deseos.has(c.id) ? "★ En mi lista de deseos" : "☆ Añadir a deseos"}</button>
         </div>` : `<div class="acciones-carta"><a class="btn rojo" href="#/entrar" data-accion="cerrar">Entra para añadirla a tu colección</a></div>`}
     </div>`;
+  if (E.psaAbierto) pintarPSA(c);
 }
 
 /* ================= amigos ================= */
@@ -1169,6 +1212,16 @@ document.addEventListener("click", async (ev) => {
   if (acc === "cerrar") { if (t.closest("a")) cerrarModal(); else { ev.preventDefault(); cerrarModal(); } return; }
   if (acc === "menu") { $("#nav").classList.toggle("abierta"); return; }
   if (acc === "salir") { await sb.auth.signOut(); await cargarSesion(); location.hash = "#/"; render(); return; }
+  if (acc === "psa") {
+    E.psaAbierto = !E.psaAbierto;
+    const panel = $("[data-psa-panel]"), btn = t.closest("[data-accion]");
+    panel.hidden = !E.psaAbierto;
+    btn.classList.toggle("azul", E.psaAbierto);
+    btn.setAttribute("aria-expanded", E.psaAbierto);
+    btn.textContent = `PSA ${E.psaAbierto ? "▲" : "▼"}`;
+    if (E.psaAbierto) pintarPSA(E.cartaPorId.get($("#modal-caja").dataset.id));
+    return;
+  }
   if (acc === "deseo") { const c = E.cartaPorId.get($("#modal-caja").dataset.id); if (c) alternarDeseo(c); return; }
   const social = t.closest("[data-social]");
   if (social) { accionSocial(social); return; }
