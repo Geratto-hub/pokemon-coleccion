@@ -255,7 +255,6 @@ function pintarNav() {
     html += enlace("amigos", `Amigos${avisos ? ` <span class="globo">${avisos}</span>` : ""}`);
     if (E.perfil.es_admin) html += enlace("admin", "Usuarios");
     html += `<a href="#/cuenta" class="usuario-chip ${r === "cuenta" ? "activo" : ""}">👤 ${esc(E.perfil.usuario)}</a>`;
-    html += `<button data-accion="salir">Salir</button>`;
   } else {
     html += enlace("entrar", "Entrar");
   }
@@ -1075,7 +1074,8 @@ async function vistaCuenta() {
       <label class="campo">Repite la contraseña<input name="password2" type="password" minlength="8" required autocomplete="new-password"></label>
       <p class="error" data-error></p>
       <button class="btn azul">Cambiar contraseña</button>
-    </form></div>`;
+    </form>
+    <div class="tarjeta salir-cuenta"><button class="btn rojo" data-accion="salir">Salir</button></div></div>`;
 }
 
 async function llamarFuncion(body) {

@@ -379,3 +379,5 @@ h1, h2, h3 { margin: 0; }
   .resumen-coleccion .cifra b { font-size: 20px; }
   .pestaña { font-size: 14px; }
 }
+.salir-cuenta { margin-top: 18px; }
+.salir-cuenta .btn { width: 100%; }
