@@ -138,7 +138,13 @@ async function cargarTodos() {
     const b = $(".cargando .barra i");
     if (b) b.style.width = `${Math.round((hechos / tot) * 100)}%`;
   };
-  await Promise.all(pendientes.map((id) => cargarSet(id, (d, t) => { prog[id] = [d, t]; pintar(); })));
+  // Si una expansión no se puede cargar, se oculta y el resto de la web sigue funcionando.
+  await Promise.all(pendientes.map((id) =>
+    cargarSet(id, (d, t) => { prog[id] = [d, t]; pintar(); }).catch((e) => {
+      console.warn(`No se pudo cargar ${id}:`, e);
+      E.ids = E.ids.filter((x) => x !== id);
+    })
+  ));
 }
 
 function pantallaCarga(texto = "Cargando cartas…") {
@@ -1004,7 +1010,7 @@ window.addEventListener("hashchange", () => { cerrarModal(); render(); scrollTo(
 (async function iniciar() {
   try {
     E.ids = await fetch("colecciones.json", { cache: "no-cache" }).then((r) => r.json());
-  } catch { E.ids = ["me04", "me05", "30th"]; }
+  } catch { E.ids = ["me03", "me04", "me05", "30th", "me06"]; }
   try { EXTRA = await fetch("imagenes-extra.json", { cache: "no-cache" }).then((r) => r.json()); } catch {}
   await cargarSesion().catch((e) => console.error(e));
   sb.auth.onAuthStateChange((evento) => {

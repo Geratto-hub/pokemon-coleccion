@@ -12,7 +12,14 @@ await mkdir(new URL("../data/", import.meta.url), { recursive: true });
 
 for (const id of ids) {
   console.log(`Descargando ${id}…`);
-  const set = await construirSet(id, { fetchFn: fetchFresco });
+  let set;
+  try {
+    set = await construirSet(id, { fetchFn: fetchFresco });
+  } catch (e) {
+    // Una expansión que falle (p. ej. aún no publicada en TCGdex) no debe impedir actualizar las demás.
+    console.log(`::warning::No se pudo descargar ${id}: ${e.message}`);
+    continue;
+  }
   const conPrecio = set.cards.filter((c) => c.p?.t != null).length;
   console.log(`  ${set.name}: ${set.cards.length} cartas, ${conPrecio} con precio`);
   await writeFile(new URL(`../data/${id}.json`, import.meta.url), JSON.stringify(set));
