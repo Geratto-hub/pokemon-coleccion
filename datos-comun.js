@@ -128,7 +128,8 @@ export async function construirPersonalizada(id, def, { fetchFn = fetch } = {}) 
   }
   const lista = new Map();
   for (const base of [API_EN, API]) {
-    const r = await getJSON(`${base}/cards?name=${encodeURIComponent(def.buscar)}`, fetchFn);
+    // Sin fetchFn: los parámetros extra de la URL (p. ej. el antiacaché) TCGdex los toma como filtros.
+    const r = await getJSON(`${base}/cards?name=${encodeURIComponent(def.buscar)}`);
     for (const c of r) if (patron.test(c.name)) lista.set(c.id, c);
   }
   const fechas = new Map();
