@@ -1,0 +1,12 @@
+{
+  "eevee": {
+    "name": "Eevee Site",
+    "descripcion": "Todas las cartas de Eevee de todas las expansiones.",
+    "buscar": "eevee",
+    "patron": "eevee",
+    "excluirSeries": [
+      "tcgp"
+    ],
+    "minimo": 50
+  }
+}

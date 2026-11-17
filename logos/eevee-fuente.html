@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent}svg{display:block}</style></head><body>
+<svg id="l" xmlns="http://www.w3.org/2000/svg" width="800" height="340" viewBox="0 0 800 340">
+<defs>
+ <linearGradient id="relleno" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#FFF6DD"/><stop offset=".45" stop-color="#FFD98A"/><stop offset=".75" stop-color="#E99A4A"/><stop offset="1" stop-color="#B8622A"/>
+ </linearGradient>
+ <linearGradient id="cinta" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8A4E26"/><stop offset="1" stop-color="#5A2F15"/></linearGradient>
+ <radialGradient id="nube" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#FFF8EA"/><stop offset="1" stop-color="#F3DDB4"/></radialGradient>
+ <filter id="sombra" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#2A1408" flood-opacity=".45"/></filter>
+</defs>
+<!-- nube esponjosa de fondo -->
+<g filter="url(#sombra)">
+ <g fill="url(#nube)" stroke="#C98B4E" stroke-width="5">
+  <path id="borla" d="M120 175 C 95 120,160 80,205 95 C 225 45,300 40,330 75 C 365 30,445 30,470 75 C 505 40,585 50,595 100 C 645 85,705 125,680 180 C 720 215,680 275,620 262 C 600 305,520 310,490 280 C 455 315,365 315,330 282 C 290 312,215 300,200 262 C 140 280,85 225,120 175 Z"/>
+ </g>
+</g>
+<path d="M150 178 C 132 135,180 108,214 120" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".8"/>
+<!-- destellos -->
+<g fill="#FFC94A" stroke="#7A4420" stroke-width="3" stroke-linejoin="round">
+ <path d="M70 92 l8 -24 l8 24 l24 8 l-24 8 l-8 24 l-8 -24 l-24 -8 z"/>
+ <path d="M724 72 l6 -18 l6 18 l18 6 l-18 6 l-6 18 l-6 -18 l-18 -6 z"/>
+ <path d="M742 262 l5 -15 l5 15 l15 5 l-15 5 l-5 15 l-5 -15 l-15 -5 z"/>
+ <path d="M48 250 l4 -12 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4 z"/>
+</g>
+<!-- palabra principal -->
+<g font-family="Inter Display" font-weight="900" font-size="150" text-anchor="middle" letter-spacing="2">
+ <text x="400" y="205" fill="none" stroke="#FFF3DA" stroke-width="34" stroke-linejoin="round">EEVEE</text>
+ <text x="400" y="205" fill="none" stroke="#3B2214" stroke-width="20" stroke-linejoin="round">EEVEE</text>
+ <text x="400" y="205" fill="url(#relleno)">EEVEE</text>
+ <text x="400" y="205" fill="none" stroke="#FFF8E6" stroke-width="2" opacity=".7">EEVEE</text>
+</g>
+<!-- cinta "SITE" -->
+<g filter="url(#sombra)">
+ <path d="M250 228 L550 228 L566 254 L550 280 L250 280 L234 254 Z" fill="#3B2214"/>
+ <path d="M258 232 L542 232 L556 254 L542 276 L258 276 L244 254 Z" fill="url(#cinta)" stroke="#E7B676" stroke-width="2.5"/>
+ <path d="M206 236 L236 236 L230 254 L236 272 L206 272 L216 254 Z" fill="#5A2F15" stroke="#3B2214" stroke-width="3"/>
+ <path d="M594 236 L564 236 L570 254 L564 272 L594 272 L584 254 Z" fill="#5A2F15" stroke="#3B2214" stroke-width="3"/>
+</g>
+<text x="400" y="267" font-family="Inter Display" font-weight="800" font-size="36" letter-spacing="14" text-anchor="middle" fill="#FFF1D2">SITE</text>
+</svg></body></html>

@@ -113,3 +113,70 @@ export async function construirSet(id, { fetchFn = fetch, onProgress } = {}) {
     cards,
   };
 }
+
+/* Colecciones personalizadas (personalizadas.json): reúnen cartas de cualquier expansión
+   cuyo nombre coincida con un patrón. Cada carta conserva su expansión de origen. */
+const normal = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+export async function construirPersonalizada(id, def, { fetchFn = fetch } = {}) {
+  const patron = new RegExp(def.patron, "i");
+  // Series que no son cartas físicas (p. ej. Pokémon TCG Pocket).
+  const excluidas = new Set();
+  for (const serie of def.excluirSeries || []) {
+    const s = await getJSON(`${API_EN}/series/${encodeURIComponent(serie)}`, fetchFn);
+    for (const x of s.sets || []) excluidas.add(x.id);
+  }
+  const lista = new Map();
+  for (const base of [API_EN, API]) {
+    const r = await getJSON(`${base}/cards?name=${encodeURIComponent(def.buscar)}`, fetchFn);
+    for (const c of r) if (patron.test(c.name)) lista.set(c.id, c);
+  }
+  const fechas = new Map();
+  const fechaDe = async (sid) => {
+    if (!fechas.has(sid)) {
+      fechas.set(sid, getJSON(`${API_EN}/sets/${encodeURIComponent(sid)}`, fetchFn).then((s) => s.releaseDate || "").catch(() => ""));
+    }
+    return fechas.get(sid);
+  };
+  const leer = async (url) => {
+    for (let intento = 0; intento < 3; intento++) {
+      try { return await getJSON(url, fetchFn); }
+      catch (e) {
+        if (String(e.message).includes("HTTP 404")) return null;
+        await new Promise((r) => setTimeout(r, 800 * (intento + 1)));
+      }
+    }
+    return null;
+  };
+  const cartas = await mapLimit([...lista.keys()], 8, async (cid) => {
+    const es = await leer(`${API}/cards/${encodeURIComponent(cid)}`);
+    const en = await leer(`${API_EN}/cards/${encodeURIComponent(cid)}`);
+    const d = es || en;
+    if (!d || !d.set || excluidas.has(d.set.id)) return null;
+    if (!normal(d.category).startsWith("pokemon") || !patron.test(d.name)) return null;
+    if (!d.pricing?.cardmarket && en?.pricing) d.pricing = en.pricing;
+    if (!d.image && en?.image) d.image = en.image;
+    const c = compactar(d);
+    c.fs = await fechaDe(d.set.id);
+    return c;
+  });
+  const cards = cartas.filter(Boolean).sort((a, b) =>
+    (a.fs || "9999").localeCompare(b.fs || "9999") || (a.sid || "").localeCompare(b.sid || "") ||
+    String(a.n).localeCompare(String(b.n), "es", { numeric: true })
+  );
+  if (cards.length < (def.minimo || 1)) throw new Error(`Solo ${cards.length} cartas encontradas para ${id}`);
+  return {
+    id,
+    name: def.name,
+    personalizada: true,
+    descripcion: def.descripcion || "",
+    logo: null,
+    symbol: null,
+    fecha: null,
+    serie: "Personalizada",
+    total: cards.length,
+    oficial: null,
+    actualizado: new Date().toISOString(),
+    cards,
+  };
+}

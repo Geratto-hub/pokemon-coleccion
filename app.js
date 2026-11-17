@@ -108,6 +108,9 @@ document.addEventListener("error", (ev) => {
 }, true);
 
 /* ================= datos de cartas ================= */
+// Cartas de todas las colecciones de la web, sin repetir las que estén en varias.
+const todasLasCartas = () => [...new Map(E.ids.flatMap((id) => E.sets[id]?.cards || []).map((c) => [c.id, c])).values()];
+const enSet = (c, set) => !set || c.sid === set || Boolean(E.sets[set]?.ids?.has(c.id));
 async function cargarSet(id, onProgress) {
   if (E.sets[id]) return E.sets[id];
   let s = null;
@@ -117,8 +120,9 @@ async function cargarSet(id, onProgress) {
   } catch {}
   // Si los datos del servidor vienen sin precios en muchas cartas, se recalculan en el navegador.
   const respaldo = s;
-  if (s && s.cards.filter((c) => c.p?.t == null && c.p?.th == null).length > s.cards.length * 0.2) s = null;
+  if (s && !s.personalizada && s.cards.filter((c) => c.p?.t == null && c.p?.th == null).length > s.cards.length * 0.2) s = null;
   if (!s) s = cacheGet(`set:${id}`, 12 * 3600e3);
+  if (!s && respaldo?.personalizada) s = respaldo;
   if (!s) {
     try {
       s = await construirSet(id, { onProgress });
@@ -129,12 +133,21 @@ async function cargarSet(id, onProgress) {
     }
   }
   // Algunas expansiones no traen logo: se deduce de la ruta de sus imágenes.
-  if (!s.logo) {
+  if (!s.logo && !s.personalizada) {
     const ref = s.cards.find((c) => c.img)?.img;
     if (ref) s.logo = ref.slice(0, ref.lastIndexOf("/")) + "/logo";
   }
-  s.cards.sort((a, b) => String(a.n).localeCompare(String(b.n), "es", { numeric: true }));
-  for (const c of s.cards) { c.rar = RAREZAS[c.rar] || c.rar; E.cartaPorId.set(c.id, c); }
+  // Las personalizadas ya vienen ordenadas por fecha de salida.
+  if (!s.personalizada) s.cards.sort((a, b) => String(a.n).localeCompare(String(b.n), "es", { numeric: true }));
+  // Una misma carta puede estar en una expansión y en una colección personalizada: se comparte el objeto.
+  s.cards = s.cards.map((c) => {
+    const ya = E.cartaPorId.get(c.id);
+    if (ya) return ya;
+    c.rar = RAREZAS[c.rar] || c.rar;
+    E.cartaPorId.set(c.id, c);
+    return c;
+  });
+  s.ids = new Set(s.cards.map((c) => c.id));
   E.sets[id] = s;
   return s;
 }
@@ -334,7 +347,7 @@ const opcionesRareza = (cartas, sel) =>
 
 /* ================= vistas públicas ================= */
 async function vistaInicio() {
-  const todas = E.ids.flatMap((id) => E.sets[id]?.cards || []);
+  const todas = todasLasCartas();
   const caras = [...todas].filter((c) => precio(c)).sort((a, b) => precio(b) - precio(a));
   const abanico = caras.filter((c) => img(c)).slice(0, 8);
   app().innerHTML = `
@@ -380,7 +393,7 @@ async function vistaSet([id], q) {
   const rar = q.get("rar") || "";
   const orden = q.get("orden") || "numero";
   let cartas = s.cards.filter((c) => !rar || c.rar === rar);
-  cartas = ordenar(cartas, orden);
+  if (!(s.personalizada && orden === "numero")) cartas = ordenar(cartas, orden);
   const valor = s.cards.reduce((a, c) => a + (precio(c) || 0), 0);
   app().innerHTML = `
     <div class="album-cab">
@@ -438,7 +451,7 @@ async function vistaBuscar(_, q, silencioso) {
   const todas = q.get("todas") === "1";
   const pag = Math.max(1, +q.get("p") || 1);
 
-  const locales = E.ids.flatMap((id) => E.sets[id]?.cards || []);
+  const locales = todasLasCartas();
   let base = locales;
   let errorRemoto = "";
   if (todas && texto.trim().length >= 2) {
@@ -456,7 +469,7 @@ async function vistaBuscar(_, q, silencioso) {
   const t = norm(texto.trim());
   let res = base.filter((c) =>
     (!t || norm(c.name).includes(t) || norm(c.ill).includes(t) || String(c.n) === t) &&
-    (!set || c.sid === set) &&
+    enSet(c, set) &&
     (!rar || c.rar === rar) &&
     (!min || (precio(c) ?? -1) >= +min) &&
     (!max || (precio(c) ?? 1e9) <= +max)
@@ -521,7 +534,7 @@ function pestañasColeccion(activa) {
 }
 
 function estadisticasColeccion() {
-  const todas = E.ids.flatMap((id) => E.sets[id]?.cards || []);
+  const todas = todasLasCartas();
   const valor = todas.reduce((a, c) => a + valorCopias(c), 0);
   const unicas = todas.filter(laTengo).length;
   const copias = [...E.copias.values()].reduce((a, b) => a + b, 0);
@@ -595,7 +608,7 @@ async function vistaAlbum([id], q) {
       <button class="flecha izq" data-pasar="-1" aria-label="Página anterior">‹</button>
       <div class="carpeta libro-abierto">${paginas.map((p, i) => `
         <div class="pagina ${i % 2 ? "pag-dcha" : "pag-izq"}" data-pag-libro="${i}" hidden>
-          <div class="bolsillos">${p.map(bolsilloHTML).join("")}${"<div class='bolsillo vacio'></div>".repeat(9 - p.length)}</div>
+          <div class="bolsillos">${p.map((c) => bolsilloHTML(c, s.personalizada)).join("")}${"<div class='bolsillo vacio'></div>".repeat(9 - p.length)}</div>
           <span class="num-pag">PÁG. ${i + 1}</span>
         </div>`).join("")}
         <div class="pagina pag-dcha pagina-fin" data-pag-libro="fin" hidden><div class="fin-album"><span class="titulo-pixel">FIN DEL ÁLBUM</span></div></div>
@@ -610,12 +623,12 @@ async function vistaAlbum([id], q) {
   iniciarLibro(`${id}|${filtro}|${rar}|${txt}`, paginas.length);
 }
 
-function bolsilloHTML(c) {
+function bolsilloHTML(c, conSet = false) {
   const n = totalCopias(c);
   const im = img(c);
   return `<div class="bolsillo ${n ? "" : "falta"}" data-carta="${esc(c.id)}" role="button" tabindex="0" aria-label="${esc(c.name)}">
     ${im ? imgCarta(c, "low", n ? c.name : "") : ""}
-    ${n ? "" : `<div class="hueco"><span>${esc(c.n)}<em>${esc(c.name)}</em></span></div>`}
+    ${n ? "" : `<div class="hueco"><span>${esc(c.n)}<em>${esc(conSet ? `${c.name} · ${c.set || ""}` : c.name)}</em></span></div>`}
     ${n > 0 ? `<span class="cant">×${n}</span>` : ""}
     ${E.deseos.has(c.id) ? `<span class="deseo" title="En tu lista de deseos">★</span>` : ""}
     <button class="mas" data-mas="${esc(c.id)}" title="Añadir una copia (${esc(VARIANTES[c.v[0]] || c.v[0])})" aria-label="Añadir una copia">+</button>
@@ -668,7 +681,7 @@ async function vistaDeseos() {
 }
 
 async function vistaRepetidas() {
-  const todas = E.ids.flatMap((id) => E.sets[id]?.cards || []);
+  const todas = todasLasCartas();
   const repes = todas.filter((c) => totalCopias(c) > 1).map((c) => {
     const extra = totalCopias(c) - 1;
     // valor de las copias sobrantes: se asume que te quedas la más valiosa
@@ -989,7 +1002,7 @@ function fichaAmigoHTML(c, mapa, etiqueta) {
 function filtrosYRejilla(cartas, q, pintar) {
   const set = q.get("set") || "";
   const txt = norm(q.get("q") || "");
-  const filtradas = cartas.filter((c) => (!set || c.sid === set) && (!txt || norm(c.name).includes(txt) || String(c.n) === txt));
+  const filtradas = cartas.filter((c) => enSet(c, set) && (!txt || norm(c.name).includes(txt) || String(c.n) === txt));
   const POR_PAG = 40;
   const paginas = Math.max(1, Math.ceil(filtradas.length / POR_PAG));
   const pag = Math.min(paginas, Math.max(1, +q.get("p") || 1));
@@ -1011,7 +1024,7 @@ async function vistaPerfilAmigo(usuario, q) {
   catch (e) { app().innerHTML = `${pestañasAmigos("lista")}<div class="tarjeta"><p class="error">${esc(e.message)}</p></div>`; return; }
   const mapa = mapaColeccion(filas);
   await asegurarCartas([...mapa.keys()]);
-  const delCatalogo = E.ids.flatMap((id) => E.sets[id]?.cards || []);
+  const delCatalogo = todasLasCartas();
   const conocidas = new Set(delCatalogo.map((c) => c.id));
   const extras = [...mapa.keys()].filter((id) => !conocidas.has(id)).map((id) => E.cartaPorId.get(id)).filter(Boolean);
   const todas = [...delCatalogo, ...extras];
@@ -1350,7 +1363,7 @@ window.addEventListener("hashchange", () => { cerrarModal(); render(); scrollTo(
 (async function iniciar() {
   try {
     E.ids = await fetch("colecciones.json", { cache: "no-cache" }).then((r) => r.json());
-  } catch { E.ids = ["me03", "me04", "me05", "30th", "me06"]; }
+  } catch { E.ids = ["me03", "me04", "me05", "30th", "me06", "eevee"]; }
   try { EXTRA = await fetch("imagenes-extra.json", { cache: "no-cache" }).then((r) => r.json()); } catch {}
   await cargarSesion().catch((e) => console.error(e));
   sb.auth.onAuthStateChange((evento) => {
